@@ -1,0 +1,8 @@
+{
+  "AC_OFF": 1,
+  "AC_ON": 2,
+  "AC_COOL_26_AUTO": 3,
+  "AC_HEAT_24_MID": 4,
+  "AC_DRY_LOW": 5,
+  "AC_FAN_MID": 6
+}

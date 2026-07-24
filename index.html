@@ -1,0 +1,4086 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>🌡️ 智能空调管家</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 16px;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 32px;
+            padding: 24px;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+            backdrop-filter: blur(10px);
+            display: flex;
+            flex-direction: column;
+        }
+        .container > h1 { order: 0; }
+        .daily-layer-title { order: 1; }
+        .scene-section { order: 2; }
+        .ac-state-section { order: 3; }
+        .power-section { order: 4; }
+        .temp-section { order: 5; }
+        .light-section { order: 6; }
+        .mode-section { order: 7; }
+        .fan-section { order: 8; }
+        .environment-section { order: 9; }
+        .voice-section { order: 10; }
+        .timer-section { order: 11; }
+        .rules-section { order: 12; }
+        .debug-layer-title { order: 20; }
+        .overview-section { order: 21; }
+        .health-section { order: 22; }
+        .ir-section { order: 23; }
+        .feedback-manager-section { order: 24; }
+        .log-section { order: 25; }
+        .status-bar { order: 99; }
+        .container.debug-collapsed .overview-section,
+        .container.debug-collapsed .health-section,
+        .container.debug-collapsed .ir-section,
+        .container.debug-collapsed .feedback-manager-section,
+        .container.debug-collapsed .log-section,
+        .container.debug-collapsed .voice-debug-panel {
+            display: none;
+        }
+        body.auth-locked {
+            overflow: hidden;
+        }
+        body.auth-locked .container {
+            filter: blur(2px);
+            pointer-events: none;
+            user-select: none;
+        }
+        .auth-panel[hidden] {
+            display: none;
+        }
+        .auth-panel {
+            position: fixed;
+            inset: 0;
+            z-index: 20;
+            display: grid;
+            place-items: center;
+            padding: 20px;
+            background: rgba(17, 24, 39, 0.62);
+        }
+        .auth-card {
+            width: min(420px, 100%);
+            padding: 24px;
+            border-radius: 8px;
+            background: #ffffff;
+            box-shadow: 0 18px 40px rgba(0, 0, 0, 0.24);
+        }
+        .auth-card h2 {
+            color: #17324d;
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+        .auth-card p {
+            color: #5f6f7d;
+            line-height: 1.6;
+            margin-bottom: 14px;
+        }
+        .auth-form {
+            display: grid;
+            gap: 10px;
+        }
+        .auth-form input {
+            width: 100%;
+            padding: 12px 14px;
+            border: 1px solid #cfd8e3;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+        .auth-form button {
+            border: none;
+            border-radius: 8px;
+            padding: 12px 14px;
+            background: #0f766e;
+            color: white;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .auth-message {
+            min-height: 20px;
+            color: #e74c3c;
+            font-size: 14px;
+        }
+        .intent-confirm-overlay[hidden] {
+            display: none;
+        }
+        .intent-confirm-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 25;
+            display: grid;
+            place-items: center;
+            padding: 20px;
+            background: rgba(18, 24, 33, 0.68);
+        }
+        .intent-confirm-card {
+            width: min(520px, 100%);
+            padding: 22px;
+            border-radius: 8px;
+            background: #ffffff;
+            border: 1px solid #d8e1ea;
+            box-shadow: 0 18px 48px rgba(0, 0, 0, 0.24);
+        }
+        .intent-confirm-card h2 {
+            color: #17324d;
+            font-size: 22px;
+            margin-bottom: 10px;
+        }
+        .intent-confirm-card p {
+            color: #536574;
+            line-height: 1.7;
+            margin-bottom: 14px;
+            white-space: pre-line;
+        }
+        .intent-confirm-detail {
+            background: #f8fafc;
+            border: 1px solid #d8e1ea;
+            border-radius: 8px;
+            padding: 12px;
+            color: #2c3e50;
+            line-height: 1.6;
+            margin-bottom: 14px;
+            white-space: pre-line;
+        }
+        .intent-confirm-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+        }
+        .intent-confirm-actions button {
+            border: none;
+            border-radius: 8px;
+            padding: 12px 10px;
+            cursor: pointer;
+            font-weight: 700;
+            color: white;
+            background: #3498db;
+        }
+        .intent-confirm-actions .secondary {
+            background: #7f8c8d;
+        }
+        .intent-confirm-actions .warning {
+            background: #e67e22;
+        }
+        h1 {
+            text-align: center;
+            color: #1e3c72;
+            margin-bottom: 20px;
+            font-size: 28px;
+            font-weight: 600;
+        }
+        .layer-title {
+            margin: 10px 0 14px;
+            padding: 12px;
+            border: 1px solid #d0ddee;
+            border-radius: 8px;
+            background: white;
+        }
+        .debug-layer-title {
+            margin-top: 10px;
+        }
+        .debug-layer-title {
+            display: grid;
+            grid-template-columns: 1fr auto auto;
+            gap: 10px;
+            align-items: center;
+        }
+        .debug-toggle-btn {
+            border: none;
+            border-radius: 8px;
+            padding: 9px 10px;
+            background: #7f8c8d;
+            color: white;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .layer-title h2 {
+            color: #1e3c72;
+            font-size: 20px;
+            margin-bottom: 4px;
+        }
+        .layer-title p {
+            color: #7f8c8d;
+            font-size: 13px;
+            line-height: 1.45;
+        }
+        .power-section {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .power-btn {
+            width: 130px;
+            height: 130px;
+            border-radius: 65px;
+            border: none;
+            background: #e74c3c;
+            color: white;
+            font-size: 26px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 10px 20px rgba(231, 76, 60, 0.3);
+            transition: all 0.3s ease;
+        }
+        .power-btn.on {
+            background: #2ecc71;
+            box-shadow: 0 10px 20px rgba(46, 204, 113, 0.3);
+        }
+        .power-btn:active {
+            transform: scale(0.95);
+        }
+        .temp-section {
+            background: #f0f4fa;
+            border-radius: 24px;
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+        .temp-section h2 {
+            color: #2c3e50;
+            font-size: 20px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .temp-display {
+            text-align: center;
+            font-size: 72px;
+            font-weight: 700;
+            color: #1e3c72;
+            margin: 10px 0;
+            line-height: 1.2;
+        }
+        .temp-control {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+        }
+        .temp-btn {
+            width: 70px;
+            height: 70px;
+            border-radius: 35px;
+            border: none;
+            background: #3498db;
+            color: white;
+            font-size: 36px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 6px 12px rgba(52, 152, 219, 0.3);
+            transition: all 0.2s;
+        }
+        .temp-btn:active {
+            transform: scale(0.9);
+        }
+        .temp-btn:disabled {
+            cursor: not-allowed;
+            opacity: 0.45;
+            transform: none;
+        }
+        .mode-section, .fan-section, .light-section, .scene-section, .ac-state-section, .overview-section, .environment-section, .health-section, .rules-section, .timer-section, .ir-section, .voice-section, .feedback-manager-section, .log-section {
+            margin-bottom: 24px;
+        }
+        .power-section h2, .mode-section h2, .fan-section h2, .light-section h2, .scene-section h2, .ac-state-section h2, .overview-section h2, .environment-section h2, .health-section h2, .rules-section h2, .timer-section h2, .ir-section h2, .voice-section h2, .feedback-manager-section h2, .log-section h2 {
+            color: #2c3e50;
+            font-size: 20px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .scene-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 12px;
+        }
+        .scene-card {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            min-height: 190px;
+            border: 1px solid #d0ddee;
+            border-radius: 8px;
+            padding: 16px;
+            background: #f8fafc;
+        }
+        .scene-title {
+            color: #17324d;
+            font-size: 20px;
+            font-weight: 800;
+        }
+        .scene-desc {
+            color: #536574;
+            line-height: 1.6;
+            flex: 1;
+        }
+        .scene-action {
+            border: none;
+            border-radius: 8px;
+            padding: 12px;
+            color: white;
+            background: #2e86c1;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 15px;
+        }
+        .scene-action.sleep {
+            background: #566573;
+        }
+        .scene-action.rainy {
+            background: #16a085;
+        }
+        .ac-state-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+        }
+        .state-pill {
+            border: 1px solid #d0ddee;
+            border-radius: 8px;
+            padding: 12px;
+            background: #f8fafc;
+        }
+        .state-label {
+            display: block;
+            color: #7f8c8d;
+            font-size: 13px;
+            margin-bottom: 6px;
+        }
+        .state-value {
+            display: block;
+            color: #17324d;
+            font-size: 20px;
+            font-weight: 800;
+        }
+        .state-code-line {
+            margin-top: 12px;
+            color: #536574;
+            font-size: 13px;
+            line-height: 1.5;
+            word-break: break-word;
+        }
+        .btn-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .mode-btn, .fan-btn {
+            flex: 1 0 calc(50% - 5px);
+            min-width: 100px;
+            padding: 14px 5px;
+            border: 2px solid #d0ddee;
+            border-radius: 16px;
+            background: white;
+            color: #2c3e50;
+            font-size: 18px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .mode-btn.active, .fan-btn.active {
+            background: #3498db;
+            border-color: #3498db;
+            color: white;
+        }
+        .light-btn {
+            width: 100%;
+            padding: 16px 20px;
+            border: 2px solid #d0ddee;
+            border-radius: 16px;
+            background: white;
+            color: #2c3e50;
+            font-size: 20px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .light-btn.on {
+            background: #f1c40f;
+            border-color: #f1c40f;
+            color: #2c3e50;
+        }
+        .scene-section, .ac-state-section, .overview-section, .environment-section, .health-section, .rules-section, .timer-section, .ir-section, .voice-section, .feedback-manager-section, .log-section {
+            background: #f0f4fa;
+            border-radius: 8px;
+            padding: 16px;
+        }
+        .environment-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+        .env-item {
+            background: white;
+            border: 1px solid #d0ddee;
+            border-radius: 8px;
+            padding: 12px 8px;
+            text-align: center;
+        }
+        .env-value {
+            display: block;
+            color: #1e3c72;
+            font-size: 24px;
+            font-weight: 700;
+            line-height: 1.2;
+        }
+        .env-label {
+            display: block;
+            color: #7f8c8d;
+            font-size: 13px;
+            margin-top: 4px;
+        }
+        .section-note {
+            color: #7f8c8d;
+            font-size: 13px;
+            margin-top: 10px;
+        }
+        .small-btn, .timer-add-btn, .timer-cancel-btn {
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        .small-btn {
+            margin-top: 12px;
+            width: 100%;
+            padding: 10px 12px;
+            background: #3498db;
+            color: white;
+            font-size: 15px;
+        }
+        .timer-controls {
+            display: grid;
+            grid-template-columns: 1fr 1.2fr;
+            gap: 10px;
+        }
+        .timer-controls input, .timer-controls select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #d0ddee;
+            border-radius: 8px;
+            background: white;
+            color: #2c3e50;
+            font-size: 16px;
+        }
+        .timer-add-btn {
+            grid-column: 1 / -1;
+            padding: 12px;
+            background: #2ecc71;
+            color: white;
+            font-size: 16px;
+        }
+        .timer-list {
+            margin-top: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .timer-item {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            align-items: center;
+            background: white;
+            border: 1px solid #d0ddee;
+            border-radius: 8px;
+            padding: 12px;
+        }
+        .timer-title {
+            color: #2c3e50;
+            font-size: 15px;
+            font-weight: 600;
+        }
+        .timer-meta {
+            color: #7f8c8d;
+            font-size: 13px;
+            margin-top: 4px;
+        }
+        .timer-cancel-btn {
+            flex: 0 0 auto;
+            padding: 8px 10px;
+            background: #e74c3c;
+            color: white;
+            font-size: 13px;
+        }
+        .timer-empty {
+            color: #7f8c8d;
+            font-size: 14px;
+            text-align: center;
+            padding: 8px 0;
+        }
+        .ir-controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .ir-controls select {
+            grid-column: 1 / -1;
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #d0ddee;
+            border-radius: 8px;
+            background: white;
+            color: #2c3e50;
+            font-size: 15px;
+        }
+        .ir-btn {
+            border: none;
+            border-radius: 8px;
+            padding: 12px;
+            background: #3498db;
+            color: white;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .ir-btn.secondary {
+            background: #2ecc71;
+        }
+        .ir-btn.neutral {
+            background: #7f8c8d;
+        }
+        .ir-list {
+            margin-top: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .ir-item {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            align-items: center;
+            background: white;
+            border: 1px solid #d0ddee;
+            border-radius: 8px;
+            padding: 10px;
+        }
+        .ir-code {
+            color: #2c3e50;
+            font-size: 14px;
+            font-weight: 700;
+            word-break: break-word;
+        }
+        .ir-meta {
+            color: #7f8c8d;
+            font-size: 12px;
+            margin-top: 3px;
+        }
+        .ir-badge {
+            flex: 0 0 auto;
+            border-radius: 8px;
+            padding: 5px 8px;
+            color: white;
+            background: #bdc3c7;
+            font-size: 12px;
+            font-weight: 700;
+        }
+        .ir-badge.learned {
+            background: #2ecc71;
+        }
+        .ir-filter {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        .ir-filter-btn {
+            border: 1px solid #d0ddee;
+            border-radius: 8px;
+            background: white;
+            color: #34495e;
+            padding: 8px 10px;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .ir-filter-btn.active {
+            border-color: #3498db;
+            background: #e8f4fd;
+            color: #1f5f8b;
+        }
+        .ir-group-title {
+            color: #34495e;
+            font-size: 13px;
+            font-weight: 800;
+            margin-top: 8px;
+        }
+        .ir-hardware-note {
+            border-left: 3px solid #3498db;
+            padding-left: 8px;
+        }
+        button:disabled,
+        select:disabled,
+        input:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+        }
+        .health-list, .feedback-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .health-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            background: white;
+            border: 1px solid #d0ddee;
+            border-radius: 8px;
+            padding: 10px;
+        }
+        .health-name {
+            color: #2c3e50;
+            font-size: 14px;
+            font-weight: 700;
+        }
+        .health-message {
+            color: #7f8c8d;
+            font-size: 12px;
+            margin-top: 3px;
+        }
+        .health-fix {
+            color: #5d6d7e;
+            font-size: 12px;
+            margin-top: 3px;
+            line-height: 1.35;
+        }
+        .health-badge {
+            flex: 0 0 auto;
+            border-radius: 8px;
+            padding: 5px 8px;
+            background: #2ecc71;
+            color: white;
+            font-size: 12px;
+            font-weight: 700;
+        }
+        .health-badge.warn {
+            background: #f1c40f;
+            color: #2c3e50;
+        }
+        .health-badge.error {
+            background: #e74c3c;
+        }
+        .ir-wizard {
+            margin-top: 12px;
+            background: white;
+            border: 1px solid #d0ddee;
+            border-radius: 8px;
+            padding: 12px;
+        }
+        .wizard-title {
+            color: #2c3e50;
+            font-size: 15px;
+            font-weight: 700;
+        }
+        .wizard-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        .feedback-panel {
+            margin-top: 12px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+        .feedback-panel input {
+            grid-column: 1 / -1;
+            width: 100%;
+            padding: 11px;
+            border: 1px solid #d0ddee;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        .feedback-btn {
+            border: none;
+            border-radius: 8px;
+            padding: 10px;
+            color: white;
+            background: #2ecc71;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .feedback-btn.bad {
+            background: #e74c3c;
+        }
+        .overview-list, .preset-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .overview-item, .feedback-item {
+            background: white;
+            border: 1px solid #d0ddee;
+            border-radius: 8px;
+            padding: 10px;
+        }
+        .overview-title, .feedback-title {
+            color: #2c3e50;
+            font-size: 14px;
+            font-weight: 700;
+            line-height: 1.35;
+        }
+        .overview-meta, .feedback-meta {
+            color: #7f8c8d;
+            font-size: 12px;
+            margin-top: 4px;
+            line-height: 1.35;
+        }
+        .metric-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-top: 10px;
+        }
+        .metric-box {
+            background: white;
+            border: 1px solid #d0ddee;
+            border-radius: 8px;
+            padding: 10px 6px;
+            text-align: center;
+        }
+        .metric-value {
+            color: #1e3c72;
+            font-size: 20px;
+            font-weight: 700;
+            line-height: 1.2;
+        }
+        .metric-label {
+            color: #7f8c8d;
+            font-size: 12px;
+            margin-top: 3px;
+        }
+        .preset-item {
+            background: white;
+            border: 1px solid #d0ddee;
+            border-radius: 8px;
+            padding: 10px;
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            align-items: center;
+        }
+        .feedback-actions, .inline-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .feedback-correction {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        .feedback-correction input, .feedback-correction select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #d0ddee;
+            border-radius: 8px;
+            background: white;
+            color: #2c3e50;
+            font-size: 13px;
+        }
+        .confidence-warning {
+            margin-top: 10px;
+            border: 1px solid #f1c40f;
+            border-radius: 8px;
+            background: #fff9db;
+            color: #6e5b00;
+            padding: 10px;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        .log-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 12px;
+            max-height: 240px;
+            overflow-y: auto;
+        }
+        .log-item {
+            background: white;
+            border: 1px solid #d0ddee;
+            border-left: 4px solid #3498db;
+            border-radius: 8px;
+            padding: 10px;
+        }
+        .log-item.bad {
+            border-left-color: #e74c3c;
+        }
+        .log-title {
+            color: #2c3e50;
+            font-size: 14px;
+            font-weight: 700;
+            line-height: 1.35;
+        }
+        .log-meta {
+            color: #7f8c8d;
+            font-size: 12px;
+            margin-top: 4px;
+        }
+        .log-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .rule-controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .rule-controls input, .rule-controls select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #d0ddee;
+            border-radius: 8px;
+            background: white;
+            color: #2c3e50;
+            font-size: 15px;
+        }
+        .rule-add-btn {
+            grid-column: 1 / -1;
+            border: none;
+            border-radius: 8px;
+            padding: 12px;
+            background: #2ecc71;
+            color: white;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .rule-list {
+            margin-top: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .rule-item {
+            background: white;
+            border: 1px solid #d0ddee;
+            border-radius: 8px;
+            padding: 12px;
+        }
+        .rule-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+        .rule-title {
+            color: #2c3e50;
+            font-size: 15px;
+            font-weight: 700;
+        }
+        .rule-meta {
+            color: #7f8c8d;
+            font-size: 13px;
+            margin-top: 5px;
+        }
+        .rule-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        .rule-action-btn {
+            flex: 1;
+            border: none;
+            border-radius: 8px;
+            padding: 8px;
+            background: #3498db;
+            color: white;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .rule-action-btn.delete {
+            background: #e74c3c;
+        }
+        .rule-badge {
+            flex: 0 0 auto;
+            border-radius: 8px;
+            padding: 5px 8px;
+            background: #2ecc71;
+            color: white;
+            font-size: 12px;
+            font-weight: 700;
+        }
+        .rule-badge.off {
+            background: #bdc3c7;
+        }
+        @media (max-width: 430px) {
+            .environment-grid, .timer-controls, .ir-controls, .rule-controls, .metric-row, .feedback-actions, .inline-actions {
+                grid-template-columns: 1fr;
+            }
+        }
+        .voice-section {
+            text-align: left;
+        }
+        .voice-settings {
+            margin-top: 12px;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 6px;
+        }
+        .voice-settings label {
+            color: #7f8c8d;
+            font-size: 13px;
+            font-weight: 700;
+        }
+        .voice-settings select {
+            width: 100%;
+            padding: 11px;
+            border: 1px solid #d0ddee;
+            border-radius: 8px;
+            background: white;
+            color: #2c3e50;
+            font-size: 14px;
+        }
+        .voice-btn {
+            padding: 18px 30px;
+            border: none;
+            border-radius: 50px;
+            background: #9b59b6;
+            color: white;
+            font-size: 22px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 8px 18px rgba(155, 89, 182, 0.3);
+            transition: all 0.2s;
+            width: 100%;
+        }
+        .voice-btn.listening {
+            background: #e74c3c;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(231, 76, 60, 0.7); }
+            70% { box-shadow: 0 0 0 15px rgba(231, 76, 60, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(231, 76, 60, 0); }
+        }
+        .voice-result {
+            margin-top: 16px;
+            color: #2c3e50;
+            font-size: 16px;
+            min-height: 24px;
+            white-space: pre-line;
+        }
+        .status-bar {
+            margin-top: 24px;
+            padding-top: 16px;
+            border-top: 1px solid #d0ddee;
+            text-align: center;
+            color: #7f8c8d;
+            font-size: 14px;
+        }
+        .audio-player {
+            margin-top: 12px;
+            width: 100%;
+        }
+
+        /* ---------- desktop dashboard layout ---------- */
+        body {
+            background: #eef3f6;
+            display: block;
+            min-height: 100vh;
+            padding: 0;
+            color: #1f2933;
+        }
+        .container {
+            width: min(1180px, calc(100% - 32px));
+            max-width: 1180px;
+            margin: 0 auto;
+            padding: 24px 0 36px;
+            background: transparent;
+            border-radius: 0;
+            box-shadow: none;
+            backdrop-filter: none;
+            display: grid;
+            grid-template-columns: repeat(12, minmax(0, 1fr));
+            gap: 16px;
+            grid-auto-flow: row dense;
+            align-items: stretch;
+        }
+        .container > h1 {
+            grid-column: 1 / -1;
+            margin: 0;
+            padding: 18px 0 4px;
+            text-align: left;
+            color: #17324d;
+            font-size: 32px;
+            line-height: 1.2;
+        }
+        .layer-title,
+        .status-bar {
+            grid-column: 1 / -1;
+        }
+        .scene-section {
+            grid-column: 1 / -1;
+        }
+        .ac-state-section {
+            grid-column: 1 / 5;
+        }
+        .power-section {
+            grid-column: 5 / 8;
+        }
+        .temp-section {
+            grid-column: 8 / 13;
+        }
+        .light-section {
+            grid-column: 1 / 5;
+        }
+        .mode-section {
+            grid-column: 5 / 9;
+        }
+        .fan-section {
+            grid-column: 9 / 13;
+        }
+        .environment-section {
+            grid-column: 1 / -1;
+        }
+        .voice-section {
+            grid-column: 1 / 7;
+        }
+        .timer-section {
+            grid-column: 7 / 13;
+        }
+        .rules-section {
+            grid-column: 1 / -1;
+        }
+        .overview-section,
+        .ir-section {
+            grid-column: 1 / 7;
+        }
+        .health-section,
+        .feedback-manager-section {
+            grid-column: 7 / 13;
+        }
+        .log-section {
+            grid-column: 1 / -1;
+        }
+        .mode-section,
+        .fan-section,
+        .light-section,
+        .scene-section,
+        .ac-state-section,
+        .overview-section,
+        .environment-section,
+        .health-section,
+        .rules-section,
+        .timer-section,
+        .ir-section,
+        .voice-section,
+        .feedback-manager-section,
+        .log-section,
+        .temp-section,
+        .power-section {
+            margin-bottom: 0;
+            background: white;
+            border: 1px solid #d8e1ea;
+            border-radius: 8px;
+            padding: 18px;
+            box-shadow: 0 8px 24px rgba(31, 41, 51, 0.08);
+        }
+        .layer-title {
+            margin: 0;
+            padding: 14px 16px;
+            border: 1px solid #d8e1ea;
+            box-shadow: 0 8px 24px rgba(31, 41, 51, 0.06);
+        }
+        .debug-layer-title {
+            margin-top: 8px;
+        }
+        .power-section {
+            text-align: left;
+            display: flex;
+            flex-direction: column;
+        }
+        .power-btn {
+            width: 100%;
+            height: auto;
+            min-height: 116px;
+            border-radius: 8px;
+            box-shadow: none;
+            flex: 1;
+        }
+        .light-section {
+            display: flex;
+            flex-direction: column;
+        }
+        .light-btn {
+            flex: 1;
+            min-height: 116px;
+        }
+        .temp-section {
+            border-radius: 8px;
+        }
+        .temp-display {
+            font-size: 64px;
+            margin: 4px 0 14px;
+        }
+        .temp-btn {
+            flex: 1;
+            height: 56px;
+            border-radius: 8px;
+            box-shadow: none;
+            font-size: 30px;
+        }
+        .temp-control {
+            gap: 12px;
+        }
+        .mode-btn,
+        .fan-btn,
+        .light-btn,
+        .voice-btn {
+            border-radius: 8px;
+            box-shadow: none;
+        }
+        .voice-btn {
+            background: #0f766e;
+            margin-top: 12px;
+        }
+        .small-btn,
+        .ir-btn,
+        .rule-action-btn,
+        .feedback-btn,
+        .timer-add-btn,
+        .timer-cancel-btn,
+        .rule-add-btn,
+        .debug-toggle-btn {
+            box-shadow: none;
+        }
+        .env-item,
+        .timer-item,
+        .ir-item,
+        .health-item,
+        .overview-item,
+        .feedback-item,
+        .metric-box,
+        .preset-item,
+        .rule-item,
+        .log-item,
+        .ir-wizard {
+            background: #f8fafc;
+        }
+        .log-list {
+            max-height: 360px;
+        }
+        @media (max-width: 960px) {
+            .container {
+                width: min(720px, calc(100% - 24px));
+                grid-template-columns: 1fr;
+                gap: 14px;
+                padding: 18px 0 28px;
+            }
+            .container > h1,
+            .layer-title,
+            .scene-section,
+            .ac-state-section,
+            .power-section,
+            .temp-section,
+            .light-section,
+            .mode-section,
+            .fan-section,
+            .environment-section,
+            .voice-section,
+            .timer-section,
+            .rules-section,
+            .overview-section,
+            .health-section,
+            .ir-section,
+            .feedback-manager-section,
+            .log-section,
+            .status-bar {
+                grid-column: 1 / -1;
+            }
+            .container > h1 {
+                text-align: center;
+                font-size: 28px;
+            }
+        }
+        @media (max-width: 560px) {
+            .container {
+                width: calc(100% - 20px);
+            }
+            .environment-grid,
+            .scene-grid,
+            .ac-state-grid,
+            .intent-confirm-actions,
+            .timer-controls,
+            .ir-controls,
+            .rule-controls,
+            .metric-row,
+            .feedback-actions,
+            .inline-actions {
+                grid-template-columns: 1fr;
+            }
+            .temp-display {
+                font-size: 54px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-panel" id="authPanel" hidden>
+        <div class="auth-card">
+            <h2>访问保护</h2>
+            <p>这个页面可以直接控制设备。公网访问时，请先输入访问密码。</p>
+            <form class="auth-form" id="authForm">
+                <input id="authPassword" type="password" autocomplete="current-password" placeholder="访问密码">
+                <button type="submit">进入控制台</button>
+                <div class="auth-message" id="authMessage"></div>
+            </form>
+        </div>
+    </div>
+
+    <div class="intent-confirm-overlay" id="intentConfirmOverlay" hidden>
+        <div class="intent-confirm-card">
+            <h2 id="intentConfirmTitle">AI 需要你确认</h2>
+            <p id="intentConfirmBody">这次识别置信度偏低，确认后才会执行。</p>
+            <div class="intent-confirm-detail" id="intentConfirmDetail"></div>
+            <div class="intent-confirm-actions">
+                <button id="intentConfirmRunBtn">确认执行</button>
+                <button class="warning" id="intentConfirmCorrectionBtn">推荐纠错</button>
+                <button class="secondary" id="intentConfirmCancelBtn">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="container debug-collapsed" id="mainContainer">
+        <h1>🏠 智能家居管家</h1>
+
+        <div class="layer-title daily-layer-title" id="dailyControl">
+            <h2>日常使用</h2>
+            <p>先选场景，再看状态；需要细调时再进入空调、灯光、语音和自动化。</p>
+        </div>
+
+        <div class="scene-section">
+            <h2>🏡 一键场景</h2>
+            <div class="scene-grid">
+                <div class="scene-card">
+                    <div class="scene-title">回家模式</div>
+                    <div class="scene-desc">开灯，并根据当前室温切到制冷或制热，回到舒适目标状态。</div>
+                    <button class="scene-action" onclick="runHomeScene()">一键回家</button>
+                </div>
+                <div class="scene-card">
+                    <div class="scene-title">睡眠模式</div>
+                    <div class="scene-desc">关灯，保留空调当前状态，并创建 30 分钟后自动关空调的定时。</div>
+                    <button class="scene-action sleep" onclick="runSleepScene()">一键睡眠</button>
+                </div>
+                <div class="scene-card">
+                    <div class="scene-title">梅雨除湿模式</div>
+                    <div class="scene-desc">启用“湿度高于 65% 自动除湿”规则，适合潮湿天气长期托管。</div>
+                    <button class="scene-action rainy" onclick="runRainyScene()">启用除湿规则</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="ir-section">
+            <h2>🏠 控制设备</h2>
+            <div class="section-note" id="deviceSummary">当前设备: 正在读取</div>
+            <div class="ir-controls">
+                <select id="deviceSelect" onchange="changeSelectedDevice(this.value)"></select>
+                <input id="deviceNameInput" placeholder="新设备名称，例如 客厅空调">
+                <input id="deviceLocationInput" placeholder="位置，可选，例如 客厅">
+                <button class="ir-btn neutral" onclick="createDevice()">新增设备</button>
+                <button class="ir-btn neutral" onclick="deleteCurrentDevice()">删除当前设备</button>
+                <button class="ir-btn neutral" onclick="resetCurrentDeviceCodes()">清空当前设备码库</button>
+            </div>
+        </div>
+
+        <div class="ac-state-section">
+            <h2>📋 当前空调完整状态</h2>
+            <div class="ac-state-grid">
+                <div class="state-pill">
+                    <span class="state-label">开关</span>
+                    <span class="state-value" id="acStatePower">--</span>
+                </div>
+                <div class="state-pill">
+                    <span class="state-label">模式</span>
+                    <span class="state-value" id="acStateMode">--</span>
+                </div>
+                <div class="state-pill">
+                    <span class="state-label">温度</span>
+                    <span class="state-value" id="acStateTemp">--</span>
+                </div>
+                <div class="state-pill">
+                    <span class="state-label">风速</span>
+                    <span class="state-value" id="acStateFan">--</span>
+                </div>
+            </div>
+            <div class="state-code-line" id="acStateCode">状态码: --</div>
+        </div>
+
+        <div class="layer-title debug-layer-title" id="debugTools">
+            <div>
+                <h2>调试维护</h2>
+                <p>部署、红外学习、AI纠错、健康检查和日志，平时默认收起。</p>
+            </div>
+            <button class="debug-toggle-btn" id="authLogoutBtn" onclick="authLogout()" hidden>退出</button>
+            <button class="debug-toggle-btn" id="debugToggleBtn" onclick="toggleDebugTools()">展开</button>
+        </div>
+
+        <!-- 项目总览 -->
+        <div class="overview-section">
+            <h2>🧩 项目总览</h2>
+            <div class="section-note" id="overviewSummary">正在读取项目状态</div>
+            <div class="overview-list" id="overviewList">
+                <div class="timer-empty">等待项目总览</div>
+            </div>
+            <button class="small-btn" onclick="loadOverview()">刷新项目总览</button>
+        </div>
+        
+        <!-- 电源按钮 -->
+        <div class="power-section">
+            <h2>⏻ 空调电源</h2>
+            <button class="power-btn" id="powerBtn" onclick="togglePower()">打开空调</button>
+            <div class="inline-actions">
+                <button class="small-btn" onclick="turnAcOn()">强制开机</button>
+                <button class="small-btn" onclick="turnAcOff()">强制关机</button>
+            </div>
+            <div class="section-note">如果网页状态和真实空调不同步，用强制开机/关机重新校准。</div>
+            <div class="section-note" id="controlStatus">控制结果: 等待操作</div>
+        </div>
+
+        <!-- 灯光控制 -->
+        <div class="light-section">
+            <h2>💡 灯光</h2>
+            <button class="light-btn" id="lightBtn" onclick="toggleLight()">灯已关闭</button>
+        </div>
+        
+        <!-- 温度控制 -->
+        <div class="temp-section">
+            <h2>🌡️ 当前温度</h2>
+            <div class="temp-display" id="tempDisplay">26°C</div>
+            <div class="temp-control">
+                <button class="temp-btn" id="tempDownBtn" onclick="changeTemp(-1)">−</button>
+                <button class="temp-btn" id="tempUpBtn" onclick="changeTemp(1)">+</button>
+            </div>
+            <div class="section-note" id="tempModeNote">自动、除湿、送风模式下温度不可调。</div>
+        </div>
+        
+        <!-- 模式选择 -->
+        <div class="mode-section">
+            <h2>🔄 运行模式</h2>
+            <div class="btn-group" id="modeGroup">
+                <button class="mode-btn" data-mode="auto" onclick="setMode('auto')">🔄 自动</button>
+                <button class="mode-btn" data-mode="cool" onclick="setMode('cool')">❄️ 制冷</button>
+                <button class="mode-btn" data-mode="heat" onclick="setMode('heat')">🔥 制热</button>
+                <button class="mode-btn" data-mode="dry" onclick="setMode('dry')">💧 除湿</button>
+                <button class="mode-btn" data-mode="fan" onclick="setMode('fan')">💨 送风</button>
+            </div>
+        </div>
+        
+        <!-- 风速选择 -->
+        <div class="fan-section">
+            <h2>💨 风速</h2>
+            <div class="btn-group" id="fanGroup">
+                <button class="fan-btn" data-fan="auto" onclick="setFan('auto')">🔄 自动</button>
+                <button class="fan-btn" data-fan="low" onclick="setFan('low')">🌬️ 低风</button>
+                <button class="fan-btn" data-fan="mid" onclick="setFan('mid')">🌪️ 中风</button>
+                <button class="fan-btn" data-fan="high" onclick="setFan('high')">💨 高风</button>
+            </div>
+        </div>
+
+        <!-- 环境显示 -->
+        <div class="environment-section">
+            <h2>🌿 室内环境</h2>
+            <div class="environment-grid">
+                <div class="env-item">
+                    <span class="env-value" id="roomTemp">--°C</span>
+                    <span class="env-label">室温</span>
+                </div>
+                <div class="env-item">
+                    <span class="env-value" id="roomHumidity">--%</span>
+                    <span class="env-label">湿度</span>
+                </div>
+                <div class="env-item">
+                    <span class="env-value" id="airQuality">--</span>
+                    <span class="env-label">空气</span>
+                </div>
+            </div>
+            <div class="section-note" id="environmentUpdatedAt">等待刷新</div>
+            <button class="small-btn" onclick="loadEnvironment()">刷新环境</button>
+        </div>
+
+        <!-- 系统健康检查 -->
+        <div class="health-section">
+            <h2>🩺 系统健康</h2>
+            <div class="section-note" id="healthSummary">正在检查系统状态</div>
+            <button class="small-btn" onclick="loadHealth()">刷新健康检查</button>
+            <div class="health-list" id="healthList">
+                <div class="timer-empty">等待检查结果</div>
+            </div>
+        </div>
+
+        <!-- 自动化规则 -->
+        <div class="rules-section">
+            <h2>🧠 自动化规则</h2>
+            <div class="rule-controls">
+                <select id="ruleCondition">
+                    <option value="temperature_gt">室温高于</option>
+                    <option value="temperature_lt">室温低于</option>
+                    <option value="humidity_gt">湿度高于</option>
+                    <option value="humidity_lt">湿度低于</option>
+                    <option value="time_at">每天时间到</option>
+                </select>
+                <input id="ruleValue" placeholder="例如 28 或 23:30">
+                <select id="ruleCommand">
+                    <option value="mode_cool">开制冷</option>
+                    <option value="mode_heat">开制热</option>
+                    <option value="mode_dry">开除湿</option>
+                    <option value="mode_fan">开送风</option>
+                    <option value="mode_auto">自动模式</option>
+                    <option value="fan_auto">自动风</option>
+                    <option value="fan_low">低风</option>
+                    <option value="fan_mid">中风</option>
+                    <option value="fan_high">高风</option>
+                    <option value="ac_on">开空调</option>
+                    <option value="ac_off">关空调</option>
+                    <option value="light_on">开灯</option>
+                    <option value="light_off">关灯</option>
+                </select>
+                <input id="ruleCooldown" type="number" min="1" max="1440" value="30" placeholder="冷却分钟">
+                <button class="rule-add-btn" onclick="createRule()">添加规则</button>
+            </div>
+            <div class="section-note">建议先用较温和阈值测试，规则会自动冷却，避免重复触发。</div>
+            <div class="preset-list" id="rulePresetList">
+                <div class="timer-empty">正在读取推荐规则</div>
+            </div>
+            <div class="rule-list" id="ruleList">
+                <div class="timer-empty">还没有自动化规则</div>
+            </div>
+        </div>
+
+        <!-- 定时控制 -->
+        <div class="timer-section">
+            <h2>⏱️ 定时任务</h2>
+            <div class="timer-controls">
+                <input id="timerMinutes" type="number" min="1" max="1440" value="10" placeholder="分钟">
+                <select id="timerCommand">
+                    <option value="light_on">开灯</option>
+                    <option value="light_off">关灯</option>
+                    <option value="ac_on">开空调</option>
+                    <option value="ac_off">关空调</option>
+                    <option value="mode_cool">制冷</option>
+                    <option value="mode_heat">制热</option>
+                    <option value="mode_dry">除湿</option>
+                    <option value="mode_fan">送风</option>
+                    <option value="mode_auto">自动模式</option>
+                    <option value="fan_auto">自动风</option>
+                    <option value="fan_low">低风</option>
+                    <option value="fan_mid">中风</option>
+                    <option value="fan_high">高风</option>
+                </select>
+                <button class="timer-add-btn" onclick="createManualTimer()">添加定时</button>
+            </div>
+            <div class="section-note">灯光也可以定时，例如 10 分钟后关灯；每天固定时间建议用自动化规则。</div>
+            <div class="timer-list" id="timerList">
+                <div class="timer-empty">还没有定时任务</div>
+            </div>
+        </div>
+
+        <!-- 空调红外学习 -->
+        <div class="ir-section">
+            <h2>📡 空调红外学习</h2>
+            <div class="section-note" id="irCurrentState">当前空调状态码: --</div>
+            <div class="section-note" id="irSummary">正在统计红外码库</div>
+            <div class="section-note" id="irBackendInfo">红外后端: --</div>
+            <div class="section-note ir-hardware-note" id="irHardwareNote">硬件验证: 等待读取</div>
+            <div class="ir-controls">
+                <select id="irCodeSelect"></select>
+                <button class="ir-btn" onclick="learnSelectedIrCode()">学习选中状态码</button>
+                <button class="ir-btn secondary" onclick="testSelectedIrCode()">测试发送</button>
+                <button class="ir-btn neutral" onclick="learnCurrentAcState()">学习当前空调状态</button>
+                <button class="ir-btn neutral" onclick="openIrBackup()">导出红外码库</button>
+                <button class="ir-btn neutral" onclick="deleteSelectedIrCode()">清除选中码</button>
+            </div>
+            <div class="section-note" id="irHint">这里只学习空调红外；不支持风速的模式可只学习无风速状态码，系统会自动降级。</div>
+            <div class="ir-filter" id="irFilterGroup">
+                <button class="ir-filter-btn active" data-ir-filter="required" onclick="setIrFilter('required')">必学</button>
+                <button class="ir-filter-btn" data-ir-filter="temp" onclick="setIrFilter('temp')">制冷/制热</button>
+                <button class="ir-filter-btn" data-ir-filter="fan" onclick="setIrFilter('fan')">风速可选</button>
+                <button class="ir-filter-btn" data-ir-filter="dryfan" onclick="setIrFilter('dryfan')">除湿/送风</button>
+                <button class="ir-filter-btn" data-ir-filter="missing" onclick="setIrFilter('missing')">未学习</button>
+                <button class="ir-filter-btn" data-ir-filter="all" onclick="setIrFilter('all')">全部</button>
+            </div>
+            <div class="ir-wizard">
+                <div class="wizard-title" id="irWizardTitle">红外学习向导</div>
+                <div class="section-note" id="irWizardHint">按步骤学习完整空调状态码，可先跳到未学习项。</div>
+                <div class="wizard-actions">
+                    <button class="ir-btn neutral" onclick="prevIrWizardStep()">上一步</button>
+                    <button class="ir-btn neutral" onclick="nextIrWizardStep()">下一步</button>
+                    <button class="ir-btn neutral" onclick="nextMissingIrWizardStep()">跳到未学习</button>
+                    <button class="ir-btn" onclick="learnWizardStep()">学习本步骤</button>
+                    <button class="ir-btn secondary" onclick="testWizardStep()">测试本步骤</button>
+                </div>
+            </div>
+            <div class="ir-list" id="irList">
+                <div class="timer-empty">正在读取红外码库</div>
+            </div>
+        </div>
+        
+        <!-- 语音控制（录音上传） -->
+        <div class="voice-section">
+            <h2>🎙️ 语音控制</h2>
+            <div class="section-note">说出空调、灯光、定时或环境查询指令，低置信度时会先确认。</div>
+            <div class="voice-settings">
+                <label for="voiceEngineMode">识别方式</label>
+                <select id="voiceEngineMode">
+                    <option value="backend" selected>后端 Vosk 离线识别</option>
+                    <option value="auto">自动：优先浏览器</option>
+                    <option value="browser">浏览器语音识别</option>
+                </select>
+            </div>
+            <div class="section-note" id="voiceStatus">Vosk状态: 正在自动检查</div>
+            <button class="voice-btn" id="voiceBtn" onclick="toggleRecording()">🎤 开始语音控制</button>
+            <div class="voice-result" id="voiceResult"></div>
+            <div class="feedback-panel voice-debug-panel">
+                <input id="feedbackNote" placeholder="识别错了就写正确说法或备注，例如：应识别为制热+中风">
+                <button class="feedback-btn" onclick="sendIntentFeedback('correct')">识别正确</button>
+                <button class="feedback-btn bad" onclick="sendIntentFeedback('wrong')">识别错误</button>
+            </div>
+            <audio id="audioPlayback" class="audio-player" controls style="display:none;"></audio>
+        </div>
+
+        <!-- AI纠错管理 -->
+        <div class="feedback-manager-section">
+            <h2>🧪 AI纠错管理</h2>
+            <div class="section-note" id="feedbackSummary">等待反馈数据</div>
+            <div class="feedback-correction">
+                <input id="manualFeedbackText" placeholder="手动输入一句识别错的话，例如 风速调成中并且开制热">
+                <input id="manualFeedbackIntents" placeholder="正确意图，用逗号隔开，例如 空调制热,风速调节">
+                <input id="manualFeedbackCommands" placeholder="正确命令，用逗号隔开，例如 mode_heat,fan_mid">
+                <input id="manualFeedbackNote" placeholder="备注，可不填">
+                <button class="feedback-btn bad" onclick="createManualFeedbackSample()">新增纠错样本</button>
+            </div>
+            <div class="feedback-actions">
+                <button class="small-btn" onclick="loadFeedback()">刷新纠错样本</button>
+                <button class="small-btn" onclick="generateFeedbackTrainingData()">生成训练数据</button>
+                <button class="small-btn" onclick="deduplicateFeedback()">清理重复样本</button>
+            </div>
+            <div class="feedback-list" id="feedbackList">
+                <div class="timer-empty">还没有纠错样本</div>
+            </div>
+        </div>
+
+        <!-- 运行日志 -->
+        <div class="log-section">
+            <h2>📋 运行日志</h2>
+            <div class="log-actions">
+                <button class="small-btn" onclick="loadLogs()">刷新日志</button>
+                <button class="small-btn" onclick="clearLogs()">清空日志</button>
+            </div>
+            <div class="log-list" id="logList">
+                <div class="timer-empty">暂无日志</div>
+            </div>
+        </div>
+        
+        <!-- 状态栏 -->
+        <div class="status-bar" id="statusBar">
+            准备就绪
+        </div>
+    </div>
+
+    <script>
+        // ---------- 全局状态 ----------
+        let powerOn = false;
+        let currentTemp = 26;
+        let currentMode = 'cool';
+        let currentFan = 'auto';
+        let lightOn = false;
+        
+        // ---------- DOM 元素 ----------
+        const powerBtn = document.getElementById('powerBtn');
+        const controlStatus = document.getElementById('controlStatus');
+        const lightBtn = document.getElementById('lightBtn');
+        const tempDisplay = document.getElementById('tempDisplay');
+        const tempDownBtn = document.getElementById('tempDownBtn');
+        const tempUpBtn = document.getElementById('tempUpBtn');
+        const tempModeNote = document.getElementById('tempModeNote');
+        const acStatePower = document.getElementById('acStatePower');
+        const acStateMode = document.getElementById('acStateMode');
+        const acStateTemp = document.getElementById('acStateTemp');
+        const acStateFan = document.getElementById('acStateFan');
+        const acStateCode = document.getElementById('acStateCode');
+        const statusBar = document.getElementById('statusBar');
+        const mainContainer = document.getElementById('mainContainer');
+        const debugToggleBtn = document.getElementById('debugToggleBtn');
+        const authPanel = document.getElementById('authPanel');
+        const authForm = document.getElementById('authForm');
+        const authPassword = document.getElementById('authPassword');
+        const authMessage = document.getElementById('authMessage');
+        const authLogoutBtn = document.getElementById('authLogoutBtn');
+        const voiceBtn = document.getElementById('voiceBtn');
+        const voiceEngineMode = document.getElementById('voiceEngineMode');
+        const voiceStatus = document.getElementById('voiceStatus');
+        const voiceResult = document.getElementById('voiceResult');
+        const audioPlayback = document.getElementById('audioPlayback');
+        const roomTemp = document.getElementById('roomTemp');
+        const roomHumidity = document.getElementById('roomHumidity');
+        const airQuality = document.getElementById('airQuality');
+        const environmentUpdatedAt = document.getElementById('environmentUpdatedAt');
+        const overviewSummary = document.getElementById('overviewSummary');
+        const overviewList = document.getElementById('overviewList');
+        const healthSummary = document.getElementById('healthSummary');
+        const healthList = document.getElementById('healthList');
+        const ruleCondition = document.getElementById('ruleCondition');
+        const ruleValue = document.getElementById('ruleValue');
+        const ruleCommand = document.getElementById('ruleCommand');
+        const ruleCooldown = document.getElementById('ruleCooldown');
+        const rulePresetList = document.getElementById('rulePresetList');
+        const ruleList = document.getElementById('ruleList');
+        const timerMinutes = document.getElementById('timerMinutes');
+        const timerCommand = document.getElementById('timerCommand');
+        const timerList = document.getElementById('timerList');
+        const irCodeSelect = document.getElementById('irCodeSelect');
+        const irList = document.getElementById('irList');
+        const irHint = document.getElementById('irHint');
+        const irSummary = document.getElementById('irSummary');
+        const irCurrentState = document.getElementById('irCurrentState');
+        const irBackendInfo = document.getElementById('irBackendInfo');
+        const irHardwareNote = document.getElementById('irHardwareNote');
+        const irFilterGroup = document.getElementById('irFilterGroup');
+        const irWizardTitle = document.getElementById('irWizardTitle');
+        const irWizardHint = document.getElementById('irWizardHint');
+        const logList = document.getElementById('logList');
+        const feedbackNote = document.getElementById('feedbackNote');
+        const feedbackSummary = document.getElementById('feedbackSummary');
+        const feedbackList = document.getElementById('feedbackList');
+        const deviceSummary = document.getElementById('deviceSummary');
+        const deviceSelect = document.getElementById('deviceSelect');
+        const deviceNameInput = document.getElementById('deviceNameInput');
+        const deviceLocationInput = document.getElementById('deviceLocationInput');
+        const manualFeedbackText = document.getElementById('manualFeedbackText');
+        const manualFeedbackIntents = document.getElementById('manualFeedbackIntents');
+        const manualFeedbackCommands = document.getElementById('manualFeedbackCommands');
+        const manualFeedbackNote = document.getElementById('manualFeedbackNote');
+        const intentConfirmOverlay = document.getElementById('intentConfirmOverlay');
+        const intentConfirmBody = document.getElementById('intentConfirmBody');
+        const intentConfirmDetail = document.getElementById('intentConfirmDetail');
+        const intentConfirmRunBtn = document.getElementById('intentConfirmRunBtn');
+        const intentConfirmCancelBtn = document.getElementById('intentConfirmCancelBtn');
+        const intentConfirmCorrectionBtn = document.getElementById('intentConfirmCorrectionBtn');
+
+        const COMMAND_LABELS = {
+            power: '空调电源',
+            ac_on: '开空调',
+            ac_off: '关空调',
+            temp_up: '温度升高',
+            temp_down: '温度降低',
+            mode_auto: '自动模式',
+            mode_cool: '制冷',
+            mode_heat: '制热',
+            mode_dry: '除湿',
+            mode_fan: '送风',
+            fan_auto: '自动风',
+            fan_low: '低风',
+            fan_mid: '中风',
+            fan_high: '高风',
+            light_toggle: '切换灯光',
+            light_on: '开灯',
+            light_off: '关灯'
+        };
+
+        const MODE_CODE_NAMES = {
+            auto: 'AUTO',
+            cool: 'COOL',
+            heat: 'HEAT',
+            dry: 'DRY',
+            fan: 'FAN'
+        };
+
+        const MODE_LABELS = {
+            auto: '自动',
+            cool: '制冷',
+            heat: '制热',
+            dry: '除湿',
+            fan: '送风'
+        };
+
+        const FAN_CODE_NAMES = {
+            auto: 'AUTO',
+            low: 'LOW',
+            mid: 'MID',
+            high: 'HIGH'
+        };
+
+        const FAN_LABELS = {
+            auto: '自动风',
+            low: '低风',
+            mid: '中风',
+            high: '高风'
+        };
+
+        let irProfiles = [];
+        let irWizardIndex = 0;
+        let irFilter = 'required';
+        let lastIrBackendStatus = null;
+        let lastIntentFeedback = null;
+        let devices = [];
+        let selectedDeviceId = '';
+        let tempAdjustModes = new Set(['cool', 'heat']);
+        
+        // 录音相关变量
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let isRecording = false;
+        let speechRecognition = null;
+        let recognitionFinalText = '';
+        let recognitionHadError = false;
+        let authRequired = false;
+        let dashboardStarted = false;
+
+        const POLL_INTERVALS = {
+            environment: 60000,
+            rules: 60000,
+            timers: 30000,
+            debug: 90000
+        };
+        const activeRequests = new Map();
+        const renderCache = new Map();
+        const busyActions = new Set();
+        const browserFetch = window.fetch.bind(window);
+
+        window.fetch = async (...args) => {
+            const response = await browserFetch(...args);
+            const url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url) || '';
+            if (response.status === 401 && !url.includes('/api/auth/')) {
+                showAuthPanel('登录已过期，请重新输入访问密码。');
+                setStatus('请先登录后再操作', false);
+            }
+            return response;
+        };
+
+        function fetchWithTimeout(url, options = {}, timeoutMs = 12000) {
+            if (!window.AbortController) {
+                return fetch(url, options);
+            }
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), timeoutMs);
+            const requestOptions = { ...options, signal: controller.signal };
+            return fetch(url, requestOptions).finally(() => clearTimeout(timer));
+        }
+
+        async function fetchJsonOnce(key, url, options = {}) {
+            if (activeRequests.has(key)) {
+                return activeRequests.get(key);
+            }
+            const request = fetchWithTimeout(url, options).then(async response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                return response.json();
+            }).finally(() => {
+                activeRequests.delete(key);
+            });
+            activeRequests.set(key, request);
+            return request;
+        }
+
+        function renderIfChanged(key, value, renderFn) {
+            const signature = JSON.stringify(value ?? null);
+            if (renderCache.get(key) === signature) return false;
+            renderCache.set(key, signature);
+            renderFn(value);
+            return true;
+        }
+
+        function showAuthPanel(message = '') {
+            if (!authPanel) return;
+            document.body.classList.add('auth-locked');
+            authPanel.hidden = false;
+            authMessage.textContent = message;
+            setTimeout(() => authPassword && authPassword.focus(), 50);
+        }
+
+        function hideAuthPanel() {
+            if (!authPanel) return;
+            authPanel.hidden = true;
+            document.body.classList.remove('auth-locked');
+            if (authPassword) authPassword.value = '';
+            if (authMessage) authMessage.textContent = '';
+        }
+
+        async function checkAuth() {
+            try {
+                const response = await fetch('/api/auth/status');
+                const data = await response.json();
+                authRequired = Boolean(data.auth_required);
+                if (authLogoutBtn) authLogoutBtn.hidden = !authRequired;
+                if (authRequired && !data.authenticated) {
+                    showAuthPanel('请输入访问密码。');
+                    setStatus('等待登录', false);
+                    return false;
+                }
+                hideAuthPanel();
+                return true;
+            } catch (error) {
+                console.error('Auth status error:', error);
+                showAuthPanel('无法确认登录状态，请检查网络后刷新。');
+                return false;
+            }
+        }
+
+        async function authLogin(event) {
+            event.preventDefault();
+            const password = authPassword.value;
+            if (!password) {
+                authMessage.textContent = '请输入访问密码。';
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password })
+                });
+                const data = await response.json();
+                if (!response.ok || !data.success) {
+                    authMessage.textContent = data.message || '登录失败';
+                    return;
+                }
+                hideAuthPanel();
+                startDashboard();
+            } catch (error) {
+                console.error('Login error:', error);
+                authMessage.textContent = '登录请求失败，请检查网络。';
+            }
+        }
+
+        async function authLogout() {
+            try {
+                await fetch('/api/auth/logout', { method: 'POST' });
+            } catch (error) {
+                console.error('Logout error:', error);
+            }
+            showAuthPanel('已退出登录。');
+            setStatus('已退出登录', false);
+        }
+
+        if (authForm) {
+            authForm.addEventListener('submit', authLogin);
+        }
+
+        function updateTempAdjustModes(capabilities) {
+            const modes = capabilities && Array.isArray(capabilities.temp_adjust_modes)
+                ? capabilities.temp_adjust_modes
+                : ['cool', 'heat'];
+            tempAdjustModes = new Set(modes.filter(mode => mode && mode !== 'auto'));
+        }
+
+        function modeCanAdjustTemp(mode = currentMode) {
+            return mode !== 'auto' && tempAdjustModes.has(mode);
+        }
+
+        function tempAdjustModeText() {
+            const labels = Array.from(tempAdjustModes).map(mode => MODE_LABELS[mode] || mode);
+            return labels.length ? labels.join('、') : '无';
+        }
+
+        function activeDeviceQuery() {
+            return selectedDeviceId ? `?device_id=${encodeURIComponent(selectedDeviceId)}` : '';
+        }
+
+        function withDeviceId(payload = {}) {
+            return selectedDeviceId ? { ...payload, device_id: selectedDeviceId } : payload;
+        }
+
+        function renderDeviceState(payload) {
+            if (Array.isArray(payload?.devices)) {
+                devices = payload.devices;
+            }
+            if (payload?.selected_device_id) {
+                selectedDeviceId = payload.selected_device_id;
+            } else if (!selectedDeviceId && devices.length) {
+                const selected = devices.find(device => device.selected) || devices[0];
+                selectedDeviceId = selected ? selected.id : '';
+            }
+
+            if (deviceSelect) {
+                deviceSelect.innerHTML = devices.map(device => {
+                    const detail = [device.name, device.location].filter(Boolean).join(' · ');
+                    return `<option value="${escapeHtml(device.id)}">${escapeHtml(detail || device.id)}</option>`;
+                }).join('');
+                if (selectedDeviceId) {
+                    deviceSelect.value = selectedDeviceId;
+                }
+            }
+
+            const active = devices.find(device => device.id === selectedDeviceId) || devices[0];
+            if (deviceSummary) {
+                if (active) {
+                    const detail = [active.name, active.location].filter(Boolean).join(' · ');
+                    deviceSummary.textContent = `当前设备: ${detail || active.id} · 已学习 ${active.learned_count || 0} 个状态码`;
+                } else {
+                    deviceSummary.textContent = '当前设备: 未配置';
+                }
+            }
+        }
+        
+        // ---------- UI 更新函数 ----------
+        function updateUI() {
+            // 电源按钮
+            powerBtn.textContent = powerOn ? '关闭空调' : '打开空调';
+            powerBtn.classList.toggle('on', powerOn);
+
+            // 灯光按钮
+            lightBtn.textContent = lightOn ? '灯已打开' : '灯已关闭';
+            lightBtn.classList.toggle('on', lightOn);
+            
+            // 温度显示
+            const nonTempMode = !modeCanAdjustTemp(currentMode);
+            const nonTempDisplay = { auto: 'AUTO', dry: 'DRY', fan: 'FAN' };
+            tempDisplay.textContent = nonTempMode ? (nonTempDisplay[currentMode] || MODE_LABELS[currentMode] || 'N/A') : currentTemp + '°C';
+            if (tempDownBtn) tempDownBtn.disabled = nonTempMode;
+            if (tempUpBtn) tempUpBtn.disabled = nonTempMode;
+            if (tempModeNote) {
+                tempModeNote.textContent = nonTempMode
+                    ? `${MODE_LABELS[currentMode] || '当前'}模式当前未启用调温；可调温模式: ${tempAdjustModeText()}`
+                    : `${MODE_LABELS[currentMode] || '当前'}模式可以调温`;
+            }
+            
+            // 模式按钮高亮
+            document.querySelectorAll('.mode-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.mode === currentMode);
+            });
+            
+            // 风速按钮高亮
+            document.querySelectorAll('.fan-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.fan === currentFan);
+            });
+
+            const stateCode = buildCurrentAcStateCode();
+            if (acStatePower) acStatePower.textContent = powerOn ? '已开机' : '已关机';
+            if (acStateMode) acStateMode.textContent = MODE_LABELS[currentMode] || currentMode || '--';
+            if (acStateTemp) {
+                acStateTemp.textContent = modeCanAdjustTemp(currentMode) ? `${currentTemp}°C` : '当前模式不调温';
+            }
+            if (acStateFan) acStateFan.textContent = FAN_LABELS[currentFan] || currentFan || '--';
+            if (acStateCode) acStateCode.textContent = '状态码: ' + stateCode;
+            if (irCurrentState) {
+                irCurrentState.textContent = '当前空调状态码: ' + stateCode;
+            }
+        }
+        
+        // 更新状态栏消息
+        function setStatus(msg, isGood = true) {
+            statusBar.textContent = msg;
+            statusBar.style.color = isGood ? '#7f8c8d' : '#e74c3c';
+        }
+
+        function setElementsBusy(selector, busy) {
+            document.querySelectorAll(selector).forEach(element => {
+                element.disabled = busy;
+            });
+        }
+
+        async function runExclusive(key, selector, workFn) {
+            if (busyActions.has(key)) {
+                setStatus('上一个操作还在执行，请稍等', false);
+                return { success: false, message: '操作进行中' };
+            }
+            busyActions.add(key);
+            if (selector) setElementsBusy(selector, true);
+            try {
+                return await workFn();
+            } finally {
+                if (selector) setElementsBusy(selector, false);
+                updateUI();
+                busyActions.delete(key);
+            }
+        }
+
+        function debugToolsOpen() {
+            return !mainContainer.classList.contains('debug-collapsed');
+        }
+
+        function pageActive() {
+            return document.visibilityState !== 'hidden';
+        }
+
+        function refreshDebugPanels() {
+            if (!debugToolsOpen() || !pageActive()) return;
+            loadOverview();
+            loadHealth();
+            loadIrProfiles();
+            loadFeedback();
+            loadLogs();
+        }
+
+        function toggleDebugTools() {
+            const collapsed = mainContainer.classList.toggle('debug-collapsed');
+            debugToggleBtn.textContent = collapsed ? '展开' : '收起';
+            setStatus(collapsed ? '调试维护已收起' : '调试维护已展开');
+            if (!collapsed) {
+                refreshDebugPanels();
+            }
+        }
+
+        function commandLabel(command) {
+            return COMMAND_LABELS[command] || command;
+        }
+
+        function escapeHtml(value) {
+            return String(value).replace(/[&<>"']/g, char => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;'
+            }[char]));
+        }
+
+        function updateEnvironmentPanel(data) {
+            if (!data) return;
+            roomTemp.textContent = (data.room_temperature ?? '--') + '°C';
+            roomHumidity.textContent = (data.humidity ?? '--') + '%';
+            airQuality.textContent = data.air_quality || '--';
+            if (data.source === 'dht11' && !data.sensor_valid) {
+                environmentUpdatedAt.textContent = 'DHT11 读取无效，温湿度自动规则已暂停'
+                    + (data.error ? '：' + data.error : '');
+            } else if (data.source === 'dht11') {
+                environmentUpdatedAt.textContent = 'DHT11 实时数据'
+                    + (data.updated_at ? ' · ' + data.updated_at : '');
+            } else {
+                environmentUpdatedAt.textContent = data.updated_at
+                    ? '模拟数据 · ' + data.updated_at
+                    : '等待刷新';
+            }
+        }
+
+        async function loadEnvironment(silent = false) {
+            try {
+                const data = await fetchJsonOnce('environment', '/api/environment');
+                renderIfChanged('environment', data, updateEnvironmentPanel);
+                if (!silent) setStatus('环境已刷新');
+            } catch (error) {
+                console.error('Environment error:', error);
+                if (!silent) setStatus('环境读取失败', false);
+            }
+        }
+
+        function renderOverview(data) {
+            if (!data || !data.modules) {
+                overviewSummary.textContent = '项目总览暂无数据';
+                overviewList.innerHTML = '<div class="timer-empty">无法读取项目总览</div>';
+                return;
+            }
+
+            const metrics = data.metrics || {};
+            overviewSummary.textContent = `规则 ${metrics.rules || 0} · 定时 ${metrics.timers || 0} · 纠错样本 ${metrics.feedback_total || 0} · 可训练 ${metrics.feedback_training_ready || 0}`;
+            const metricHtml = `
+                <div class="metric-row">
+                    <div class="metric-box"><div class="metric-value">${metrics.rules || 0}</div><div class="metric-label">自动化规则</div></div>
+                    <div class="metric-box"><div class="metric-value">${metrics.timers || 0}</div><div class="metric-label">定时任务</div></div>
+                    <div class="metric-box"><div class="metric-value">${metrics.feedback_training_ready || 0}</div><div class="metric-label">可训练样本</div></div>
+                </div>
+            `;
+            const modulesHtml = data.modules.map(module => `
+                <div class="overview-item">
+                    <div class="overview-title">${escapeHtml(module.name)}</div>
+                    <div class="overview-meta">${escapeHtml(module.detail)}</div>
+                </div>
+            `).join('');
+            const hardwareHtml = data.hardware && data.hardware.controllers
+                ? data.hardware.controllers.map(controller => `
+                    <div class="overview-item">
+                        <div class="overview-title">${escapeHtml(controller.name)} · ${controller.ready ? '就绪' : '待配置'}</div>
+                        <div class="overview-meta">${escapeHtml(controller.kind)} · ${escapeHtml(controller.summary || '')}</div>
+                    </div>
+                `).join('')
+                : '';
+            overviewList.innerHTML = metricHtml + modulesHtml + hardwareHtml;
+        }
+
+        async function loadOverview() {
+            if (!debugToolsOpen()) return;
+            try {
+                const data = await fetchJsonOnce('overview', '/api/overview');
+                renderIfChanged('overview', data, renderOverview);
+            } catch (error) {
+                console.error('Overview error:', error);
+                overviewSummary.textContent = '项目总览请求失败';
+                overviewList.innerHTML = '<div class="timer-empty">无法读取项目总览</div>';
+            }
+        }
+
+        function renderHealth(data) {
+            if (!data || !data.checks) {
+                healthSummary.textContent = '健康检查暂无数据';
+                healthList.innerHTML = '<div class="timer-empty">暂无检查结果</div>';
+                return;
+            }
+
+            const statusText = data.status === 'ok'
+                ? '系统正常'
+                : (data.status === 'warn' ? '系统有提醒' : '系统有异常');
+            healthSummary.textContent = `${statusText} · 正常 ${data.summary.ok} · 提醒 ${data.summary.warn} · 异常 ${data.summary.error}`;
+            healthList.innerHTML = data.checks.map(check => {
+                const badgeText = check.level === 'ok' ? '正常' : (check.level === 'warn' ? '提醒' : '异常');
+                const fix = check.fix ? `<div class="health-fix">建议: ${escapeHtml(check.fix)}</div>` : '';
+                return `
+                    <div class="health-item">
+                        <div>
+                            <div class="health-name">${escapeHtml(check.name)}</div>
+                            <div class="health-message">${escapeHtml(check.message)}</div>
+                            ${fix}
+                        </div>
+                        <span class="health-badge ${check.level === 'ok' ? '' : check.level}">${badgeText}</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function loadHealth() {
+            if (!debugToolsOpen()) return;
+            try {
+                const data = await fetchJsonOnce('health', '/api/health');
+                renderIfChanged('health', data, renderHealth);
+            } catch (error) {
+                console.error('Health error:', error);
+                healthSummary.textContent = '健康检查请求失败';
+                healthList.innerHTML = '<div class="timer-empty">无法读取系统状态</div>';
+            }
+        }
+
+        function formatRemaining(seconds) {
+            seconds = Math.max(0, Number(seconds) || 0);
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            const secs = seconds % 60;
+            if (hours > 0) return `${hours}小时${minutes}分钟`;
+            if (minutes > 0) return `${minutes}分钟${secs}秒`;
+            return `${secs}秒`;
+        }
+
+        function renderTimers(timers) {
+            if (!timers || !timers.length) {
+                timerList.innerHTML = '<div class="timer-empty">还没有定时任务</div>';
+                return;
+            }
+
+            const statusText = {
+                pending: '等待执行',
+                running: '正在执行',
+                done: '已完成',
+                failed: '执行失败',
+                cancelled: '已取消'
+            };
+
+            timerList.innerHTML = timers.slice().reverse().map(timer => {
+                const labels = timer.command_labels && timer.command_labels.length
+                    ? timer.command_labels.join('、')
+                    : (timer.commands || []).map(commandLabel).join('、');
+                const title = timer.label && timer.label !== '手动定时'
+                    ? `${timer.label}（${labels}）`
+                    : labels;
+                const meta = timer.status === 'pending'
+                    ? `${formatRemaining(timer.remaining_seconds)}后执行`
+                    : (statusText[timer.status] || timer.status);
+                const cancelButton = timer.status === 'pending'
+                    ? `<button class="timer-cancel-btn" onclick="cancelTimer(${timer.id})">取消</button>`
+                    : '';
+                return `
+                    <div class="timer-item">
+                        <div>
+                            <div class="timer-title">${escapeHtml(title)}</div>
+                            <div class="timer-meta">${escapeHtml(meta)} · ${escapeHtml(timer.run_at || '')}</div>
+                        </div>
+                        ${cancelButton}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function loadTimers() {
+            try {
+                const data = await fetchJsonOnce('timers', '/api/timers');
+                renderIfChanged('timers', data.timers || [], renderTimers);
+            } catch (error) {
+                console.error('Timer error:', error);
+            }
+        }
+
+        async function saveTimer(payload) {
+            const response = await fetch('/api/timers', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await response.json();
+            if (!data.success) {
+                setStatus(data.message || '定时创建失败', false);
+                return null;
+            }
+            renderTimers(data.timers || []);
+            setStatus('定时已添加');
+            loadLogs();
+            return data.timer;
+        }
+
+        async function createManualTimer() {
+            const minutes = Number(timerMinutes.value);
+            if (!minutes || minutes <= 0) {
+                setStatus('请输入大于 0 的分钟数', false);
+                return;
+            }
+            const command = timerCommand.value;
+            await saveTimer({
+                delay_minutes: minutes,
+                command,
+                label: `${minutes}分钟后${commandLabel(command)}`
+            });
+        }
+
+        async function createTimerFromIntent(timer) {
+            if (!timer || !timer.commands || !timer.commands.length) return;
+            await saveTimer({
+                delay_seconds: timer.delay_seconds,
+                commands: timer.commands,
+                label: timer.label || '语音定时'
+            });
+        }
+
+        function currentRoomTemperature() {
+            const value = parseFloat((roomTemp && roomTemp.textContent) || '');
+            return Number.isFinite(value) ? value : null;
+        }
+
+        async function setTargetTemperature(targetTemp) {
+            if (!modeCanAdjustTemp(currentMode)) return;
+            await setTemp(targetTemp);
+        }
+
+        async function runHomeScene() {
+            return runExclusive('scene:home', '.scene-action, .power-btn, .light-btn, .temp-btn, .mode-btn, .fan-btn', async () => {
+                const room = currentRoomTemperature();
+                const preferHeat = room !== null && room < 22;
+                const targetMode = preferHeat ? 'heat' : 'cool';
+                const targetTemp = preferHeat ? 24 : 26;
+                const targetFan = preferHeat ? 'mid' : 'auto';
+
+                setStatus('正在执行回家模式');
+                await sendCommand('light_on');
+                await sendCommand('ac_on');
+                await sendCommand('mode_' + targetMode);
+                await setTargetTemperature(targetTemp);
+                await sendCommand('fan_' + targetFan);
+                setStatus(`回家模式已执行: 开灯 + ${MODE_LABELS[targetMode]} ${targetTemp}°C + ${FAN_LABELS[targetFan]}`);
+                loadInitialState();
+                loadLogs();
+                return { success: true };
+            });
+        }
+
+        async function runSleepScene() {
+            return runExclusive('scene:sleep', '.scene-action, .light-btn, .timer-add-btn', async () => {
+                setStatus('正在执行睡眠模式');
+                await sendCommand('light_off');
+                await saveTimer({
+                    delay_minutes: 30,
+                    command: 'ac_off',
+                    label: '睡眠模式：30分钟后关空调'
+                });
+                setStatus('睡眠模式已启动: 已关灯，30分钟后关空调');
+                loadTimers();
+                loadLogs();
+                return { success: true };
+            });
+        }
+
+        function hasRainyDryRule(rules) {
+            return (rules || []).some(rule =>
+                rule.enabled
+                && rule.condition === 'humidity_gt'
+                && Number(rule.value) === 65
+                && rule.command === 'mode_dry'
+            );
+        }
+
+        async function runRainyScene() {
+            return runExclusive('scene:rainy', '.scene-action, .rule-action-btn, .rule-add-btn', async () => {
+                setStatus('正在启用梅雨除湿模式');
+                try {
+                    const current = await fetch('/api/rules').then(response => response.json());
+                    if (hasRainyDryRule(current.rules)) {
+                        renderRules(current.rules || []);
+                        setStatus('梅雨除湿模式已启用: 湿度高于65%自动除湿');
+                        return { success: true };
+                    }
+
+                    const response = await fetch('/api/rules/presets/humid_to_dry', { method: 'POST' });
+                    const data = await response.json();
+                    if (data.success) {
+                        renderRules(data.rules || []);
+                        setStatus('梅雨除湿模式已启用: 湿度高于65%自动除湿');
+                        loadOverview();
+                        loadHealth();
+                        loadLogs();
+                        return { success: true };
+                    }
+                    setStatus(data.message || '梅雨除湿模式启用失败', false);
+                    return data;
+                } catch (error) {
+                    console.error('Rainy scene error:', error);
+                    setStatus('梅雨除湿模式请求失败', false);
+                    return { success: false };
+                }
+            });
+        }
+
+        async function cancelTimer(timerId) {
+            try {
+                const response = await fetch('/api/timers/' + timerId, { method: 'DELETE' });
+                const data = await response.json();
+                if (data.success) {
+                    renderTimers(data.timers || []);
+                    setStatus('定时已取消');
+                    loadLogs();
+                } else {
+                    setStatus(data.message || '取消失败', false);
+                }
+            } catch (error) {
+                console.error('Cancel timer error:', error);
+                setStatus('取消定时失败', false);
+            }
+        }
+
+        function renderRules(rules) {
+            if (!rules || !rules.length) {
+                ruleList.innerHTML = '<div class="timer-empty">还没有自动化规则</div>';
+                return;
+            }
+
+            ruleList.innerHTML = rules.map(rule => {
+                const valueText = typeof rule.value === 'number' ? `${rule.value}${rule.unit || ''}` : rule.value;
+                const meta = [
+                    `${rule.condition_label}${valueText}`,
+                    `执行 ${rule.command_label}`,
+                    `冷却 ${rule.cooldown_minutes} 分钟`,
+                    `触发 ${rule.trigger_count || 0} 次`
+                ].join(' · ');
+                const toggleText = rule.enabled ? '停用' : '启用';
+                return `
+                    <div class="rule-item">
+                        <div class="rule-head">
+                            <div class="rule-title">${escapeHtml(rule.name)}</div>
+                            <span class="rule-badge ${rule.enabled ? '' : 'off'}">${rule.enabled ? '启用' : '停用'}</span>
+                        </div>
+                        <div class="rule-meta">${escapeHtml(meta)}</div>
+                        <div class="rule-meta">状态: ${escapeHtml(rule.message || '等待触发')}</div>
+                        <div class="rule-actions">
+                            <button class="rule-action-btn" onclick="toggleRule(${rule.id}, ${!rule.enabled})">${toggleText}</button>
+                            <button class="rule-action-btn delete" onclick="deleteRule(${rule.id})">删除</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderRulePresets(presets) {
+            if (!presets || !presets.length) {
+                rulePresetList.innerHTML = '<div class="timer-empty">暂无推荐规则</div>';
+                return;
+            }
+
+            rulePresetList.innerHTML = presets.map(preset => `
+                <div class="preset-item">
+                    <div>
+                        <div class="rule-title">${escapeHtml(preset.name)}</div>
+                        <div class="rule-meta">${escapeHtml(preset.condition)} · ${escapeHtml(preset.value)} · ${commandLabel(preset.command)}</div>
+                    </div>
+                    <button class="rule-action-btn" onclick="createPresetRule('${escapeHtml(preset.id)}')">添加</button>
+                </div>
+            `).join('');
+        }
+
+        async function loadRules() {
+            try {
+                const data = await fetchJsonOnce('rules', '/api/rules');
+                renderIfChanged('rules', data.rules || [], renderRules);
+            } catch (error) {
+                console.error('Rules error:', error);
+            }
+        }
+
+        async function loadRulePresets() {
+            try {
+                const data = await fetchJsonOnce('rule-presets', '/api/rules/presets');
+                renderIfChanged('rule-presets', data.presets || [], renderRulePresets);
+            } catch (error) {
+                console.error('Rule preset error:', error);
+                rulePresetList.innerHTML = '<div class="timer-empty">推荐规则读取失败</div>';
+            }
+        }
+
+        async function createPresetRule(presetId) {
+            try {
+                const response = await fetch('/api/rules/presets/' + presetId, { method: 'POST' });
+                const data = await response.json();
+                if (data.success) {
+                    renderRules(data.rules || []);
+                    setStatus('推荐规则已添加');
+                    loadLogs();
+                    loadOverview();
+                    loadHealth();
+                } else {
+                    setStatus(data.message || '推荐规则添加失败', false);
+                }
+            } catch (error) {
+                console.error('Create preset rule error:', error);
+                setStatus('推荐规则添加请求失败', false);
+            }
+        }
+
+        async function createRule() {
+            const value = ruleValue.value.trim();
+            if (!value) {
+                setStatus('请输入规则阈值或时间', false);
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/rules', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        condition: ruleCondition.value,
+                        value,
+                        command: ruleCommand.value,
+                        cooldown_minutes: Number(ruleCooldown.value) || 30,
+                        enabled: true
+                    })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    renderRules(data.rules || []);
+                    setStatus('自动化规则已添加');
+                    loadLogs();
+                    loadOverview();
+                    loadHealth();
+                } else {
+                    setStatus(data.message || '规则添加失败', false);
+                }
+            } catch (error) {
+                console.error('Create rule error:', error);
+                setStatus('规则添加请求失败', false);
+            }
+        }
+
+        async function toggleRule(ruleId, enabled) {
+            try {
+                const response = await fetch('/api/rules/' + ruleId + '/toggle', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ enabled })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    renderRules(data.rules || []);
+                    setStatus(enabled ? '规则已启用' : '规则已停用');
+                    loadLogs();
+                    loadOverview();
+                    loadHealth();
+                } else {
+                    setStatus(data.message || '规则更新失败', false);
+                }
+            } catch (error) {
+                console.error('Toggle rule error:', error);
+                setStatus('规则更新请求失败', false);
+            }
+        }
+
+        async function deleteRule(ruleId) {
+            try {
+                const response = await fetch('/api/rules/' + ruleId, { method: 'DELETE' });
+                const data = await response.json();
+                if (data.success) {
+                    renderRules(data.rules || []);
+                    setStatus('规则已删除');
+                    loadLogs();
+                    loadOverview();
+                    loadHealth();
+                } else {
+                    setStatus(data.message || '删除失败', false);
+                }
+            } catch (error) {
+                console.error('Delete rule error:', error);
+                setStatus('删除规则请求失败', false);
+            }
+        }
+
+        function renderLogs(logs) {
+            if (!logs || !logs.length) {
+                logList.innerHTML = '<div class="timer-empty">暂无日志</div>';
+                return;
+            }
+
+            logList.innerHTML = logs.map(log => {
+                const detailParts = [];
+                if (log.detail && Array.isArray(log.detail.commands) && log.detail.commands.length) {
+                    detailParts.push('命令: ' + log.detail.commands.join('、'));
+                }
+                if (log.detail && log.detail.state_code) {
+                    detailParts.push('状态码: ' + log.detail.state_code);
+                }
+                if (log.detail && log.detail.run_at) {
+                    detailParts.push('执行时间: ' + log.detail.run_at);
+                }
+                const meta = [log.time || '', log.category || '', ...detailParts].filter(Boolean).join(' · ');
+                return `
+                    <div class="log-item ${log.success === false ? 'bad' : ''}">
+                        <div class="log-title">${escapeHtml(log.message || '')}</div>
+                        <div class="log-meta">${escapeHtml(meta)}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function loadLogs() {
+            if (!debugToolsOpen()) return;
+            try {
+                const data = await fetchJsonOnce('logs', '/api/logs?limit=30');
+                renderIfChanged('logs', data.logs || [], renderLogs);
+            } catch (error) {
+                console.error('Log error:', error);
+            }
+        }
+
+        async function clearLogs() {
+            try {
+                const response = await fetch('/api/logs', { method: 'DELETE' });
+                const data = await response.json();
+                renderLogs(data.logs || []);
+                setStatus('日志已清空');
+            } catch (error) {
+                console.error('Clear log error:', error);
+                setStatus('清空日志失败', false);
+            }
+        }
+
+        function buildCurrentAcStateCode() {
+            if (currentMode === 'auto') {
+                return 'AC_AUTO';
+            }
+            const mode = MODE_CODE_NAMES[currentMode] || 'COOL';
+            const fan = FAN_CODE_NAMES[currentFan] || 'AUTO';
+            if (!modeCanAdjustTemp(currentMode)) {
+                return `AC_${mode}_${fan}`;
+            }
+            const temp = Math.max(16, Math.min(30, Number(currentTemp) || 26));
+            return `AC_${mode}_${temp}_${fan}`;
+        }
+
+        function irLabelFor(code) {
+            const found = irProfiles.find(profile => profile.code === code);
+            if (found) return found.label;
+            if (code === 'AC_OFF') return '空调关闭';
+            if (code === 'AC_ON') return '空调开机';
+            if (code === 'AC_AUTO') return '自动模式';
+            if (code === 'AC_DRY') return '除湿';
+            if (code === 'AC_FAN') return '送风';
+            const simpleMatch = code.match(/^AC_(DRY|FAN)_(AUTO|LOW|MID|HIGH)$/);
+            if (simpleMatch) {
+                const modeText = simpleMatch[1] === 'DRY' ? '除湿' : '送风';
+                const fanText = { AUTO: '自动风', LOW: '低风', MID: '中风', HIGH: '高风' }[simpleMatch[2]];
+                return `${modeText} ${fanText}`;
+            }
+            const tempOnlyMatch = code.match(/^AC_(COOL|HEAT)_(\d+)$/);
+            if (tempOnlyMatch) {
+                const modeText = tempOnlyMatch[1] === 'COOL' ? '制冷' : '制热';
+                return `${modeText} ${tempOnlyMatch[2]}度`;
+            }
+            return code;
+        }
+
+        const IR_FILTER_LABELS = {
+            required: '必学',
+            temp: '制冷/制热',
+            fan: '风速可选',
+            dryfan: '除湿/送风',
+            missing: '未学习',
+            all: '全部'
+        };
+
+        function irProfileGroup(profile) {
+            const code = profile && profile.code ? profile.code : '';
+            if (['AC_OFF', 'AC_ON', 'AC_AUTO'].includes(code)) return 'required';
+            if (/^AC_(COOL|HEAT)_(1[6-9]|2\d|30)$/.test(code)) return 'temp';
+            if (/^AC_(COOL|HEAT)_(1[6-9]|2\d|30)_(AUTO|LOW|MID|HIGH)$/.test(code)) return 'fan';
+            if (/^AC_(DRY|FAN)(_(AUTO|LOW|MID|HIGH))?$/.test(code)) return 'dryfan';
+            if (/^AC_(DRY|FAN)_(1[6-9]|2\d|30)_(AUTO|LOW|MID|HIGH)$/.test(code)) return 'dryfan';
+            return 'all';
+        }
+
+        function irVisibleProfiles() {
+            if (irFilter === 'all') return irProfiles;
+            if (irFilter === 'missing') return irProfiles.filter(profile => !profile.learned);
+            return irProfiles.filter(profile => irProfileGroup(profile) === irFilter);
+        }
+
+        function renderIrFilters() {
+            if (!irFilterGroup) return;
+            const counts = {
+                required: 0,
+                temp: 0,
+                fan: 0,
+                dryfan: 0,
+                missing: irProfiles.filter(profile => !profile.learned).length,
+                all: irProfiles.length
+            };
+            irProfiles.forEach(profile => {
+                const group = irProfileGroup(profile);
+                if (counts[group] !== undefined) counts[group] += 1;
+            });
+            irFilterGroup.querySelectorAll('.ir-filter-btn').forEach(button => {
+                const filter = button.dataset.irFilter;
+                button.classList.toggle('active', filter === irFilter);
+                button.textContent = `${IR_FILTER_LABELS[filter] || filter} ${counts[filter] || 0}`;
+            });
+        }
+
+        function setIrFilter(filter) {
+            irFilter = filter;
+            irWizardIndex = 0;
+            renderIrProfiles(irProfiles, irCodeSelect.value, null, lastIrBackendStatus);
+            setStatus('红外列表已切换到: ' + (IR_FILTER_LABELS[filter] || filter));
+        }
+
+        function irGroupTitle(group) {
+            const title = IR_FILTER_LABELS[group] || '其他';
+            const note = {
+                required: '先学这几项，开关和自动模式会更稳。',
+                temp: '适合不支持风速调节的遥控器，系统会自动降级使用。',
+                fan: '遥控器支持风速时再补齐，不支持可以跳过。',
+                dryfan: '除湿和送风按空调能力选择；支持温度的机型可以学习带温度状态码。',
+                all: '完整状态码'
+            }[group] || '';
+            return note ? `${title} · ${note}` : title;
+        }
+
+        function renderIrHardwareNote(backend) {
+            if (!irHardwareNote || !backend) return;
+            if (backend.mock) {
+                irHardwareNote.textContent = '硬件验证: 当前为模拟红外，适合无硬件调试。';
+                return;
+            }
+            if (backend.backend === 'gpio' || backend.backend === 'gpio_pwm' || backend.backend === 'pwm') {
+                const rx = `接收 ${backend.rx_board_pin || '--'}号脚/${backend.rx_gpio_name || '--'}`;
+                const tx = `发射 ${backend.tx_board_pin || '--'}号脚/${backend.tx_gpio_name || '--'}`;
+                const pwm = `${backend.pwm_chip || '--'}/pwm${backend.pwm_channel ?? '--'}`;
+                const carrier = `${backend.carrier_hz || 38000}Hz，占空比 ${backend.duty_cycle ?? '--'}`;
+                irHardwareNote.textContent = `硬件验证: ${rx} · ${tx} · ${pwm} · ${carrier}。当前小功率发射已能输出，实际控制建议换大功率模块闭环。`;
+            } else {
+                irHardwareNote.textContent = `硬件验证: LIRC 后端 ${backend.receive_device || '--'} / ${backend.send_device || '--'}`;
+            }
+        }
+
+        function renderIrProfiles(profiles, currentCode, summary = null, backendStatus = null) {
+            irProfiles = profiles || [];
+            lastIrBackendStatus = backendStatus || lastIrBackendStatus;
+            if (lastIrBackendStatus && Array.isArray(lastIrBackendStatus.temp_adjust_modes)) {
+                updateTempAdjustModes({ temp_adjust_modes: lastIrBackendStatus.temp_adjust_modes });
+                updateUI();
+            }
+            const visibleProfiles = irVisibleProfiles();
+            if (irWizardIndex >= visibleProfiles.length) irWizardIndex = 0;
+            renderIrFilters();
+            const selected = irCodeSelect.value;
+            irCodeSelect.innerHTML = visibleProfiles.map(profile => {
+                const learnedText = profile.learned ? '已学习' : '未学习';
+                return `<option value="${escapeHtml(profile.code)}">${escapeHtml(profile.code)} · ${escapeHtml(profile.label)} · ${learnedText}</option>`;
+            }).join('');
+
+            if (selected && visibleProfiles.some(profile => profile.code === selected)) {
+                irCodeSelect.value = selected;
+            } else if (currentCode && visibleProfiles.some(profile => profile.code === currentCode)) {
+                irCodeSelect.value = currentCode;
+            } else if (visibleProfiles.length) {
+                irCodeSelect.value = visibleProfiles[0].code;
+            }
+
+            irCurrentState.textContent = '当前空调状态码: ' + buildCurrentAcStateCode();
+            const learnedCount = summary ? summary.learned : irProfiles.filter(profile => profile.learned).length;
+            const totalCount = summary ? summary.total : irProfiles.length;
+            const missingCount = summary ? summary.missing : Math.max(0, totalCount - learnedCount);
+            irSummary.textContent = `红外状态码: 已学习 ${learnedCount}/${totalCount}，未学习 ${missingCount}`;
+            if (irBackendInfo && backendStatus) {
+                const backend = backendStatus || {};
+                if (backend.backend === 'gpio' || backend.backend === 'gpio_pwm' || backend.backend === 'pwm') {
+                    irBackendInfo.textContent = `红外后端: GPIO/PWM · 接收 ${backend.rx_device || backend.rx_chip || '--'} line ${backend.rx_line ?? '--'} · 发射 ${backend.pwm_chip || '--'}/pwm${backend.pwm_channel ?? '--'}`;
+                } else {
+                    irBackendInfo.textContent = `红外后端: ${backend.backend || 'lirc'} · 接收 ${backend.receive_device || '--'} · 发射 ${backend.send_device || '--'}`;
+                }
+            }
+            renderIrHardwareNote(lastIrBackendStatus);
+            updateIrHint();
+            renderIrWizard();
+
+            if (!visibleProfiles.length) {
+                irList.innerHTML = '<div class="timer-empty">当前分组没有红外状态码</div>';
+                return;
+            }
+
+            const grouped = visibleProfiles.reduce((result, profile) => {
+                const group = irProfileGroup(profile);
+                if (!result[group]) result[group] = [];
+                result[group].push(profile);
+                return result;
+            }, {});
+            const orderedGroups = ['required', 'temp', 'fan', 'dryfan', 'all'].filter(group => grouped[group]);
+            irList.innerHTML = orderedGroups.map(group => `
+                <div class="ir-group-title">${escapeHtml(irGroupTitle(group))}</div>
+                ${grouped[group].map(profile => `
+                    <div class="ir-item">
+                        <div>
+                            <div class="ir-code">${escapeHtml(profile.code)}</div>
+                            <div class="ir-meta">${escapeHtml(profile.label)} · ${escapeHtml(profile.hint || '')}</div>
+                        </div>
+                        <span class="ir-badge ${profile.learned ? 'learned' : ''}">${profile.learned ? '已学习' : '未学习'}</span>
+                    </div>
+                `).join('')}
+            `).join('');
+        }
+
+        function updateIrHint() {
+            const code = irCodeSelect.value;
+            const profile = irProfiles.find(item => item.code === code);
+            irHint.textContent = profile && profile.hint
+                ? profile.hint
+                : '这里只学习空调红外；不支持风速的模式可只学习无风速状态码，系统会自动降级。';
+        }
+
+        function renderIrWizard() {
+            const steps = irVisibleProfiles();
+            if (!steps.length) {
+                irWizardTitle.textContent = '红外学习向导';
+                irWizardHint.textContent = '当前分组没有可学习的空调状态码。';
+                return;
+            }
+            if (irWizardIndex >= steps.length) irWizardIndex = 0;
+            const profile = steps[irWizardIndex];
+            irWizardTitle.textContent = `${IR_FILTER_LABELS[irFilter] || '红外'} · 第 ${irWizardIndex + 1}/${steps.length} 步：${profile.code}`;
+            irWizardHint.textContent = `${profile.label} · ${profile.hint || '按原遥控器发送一次'} · ${profile.learned ? '已学习' : '未学习'}`;
+            irCodeSelect.value = profile.code;
+            updateIrHint();
+        }
+
+        function prevIrWizardStep() {
+            const steps = irVisibleProfiles();
+            if (!steps.length) return;
+            irWizardIndex = (irWizardIndex - 1 + steps.length) % steps.length;
+            renderIrWizard();
+        }
+
+        function nextIrWizardStep() {
+            const steps = irVisibleProfiles();
+            if (!steps.length) return;
+            irWizardIndex = (irWizardIndex + 1) % steps.length;
+            renderIrWizard();
+        }
+
+        function nextMissingIrWizardStep() {
+            const steps = irVisibleProfiles();
+            if (!steps.length) return;
+            const start = irWizardIndex;
+            for (let offset = 1; offset <= steps.length; offset++) {
+                const index = (start + offset) % steps.length;
+                if (!steps[index].learned) {
+                    irWizardIndex = index;
+                    renderIrWizard();
+                    return;
+                }
+            }
+            setStatus((IR_FILTER_LABELS[irFilter] || '当前分组') + '的红外状态码都已学习');
+        }
+
+        async function learnWizardStep() {
+            const steps = irVisibleProfiles();
+            if (!steps.length) {
+                setStatus('没有可学习的红外步骤', false);
+                return;
+            }
+            const profile = steps[irWizardIndex];
+            await learnIrCode(profile.code, profile.label);
+        }
+
+        async function testWizardStep() {
+            const steps = irVisibleProfiles();
+            if (!steps.length) {
+                setStatus('没有可测试的红外步骤', false);
+                return;
+            }
+            irCodeSelect.value = steps[irWizardIndex].code;
+            await testSelectedIrCode();
+        }
+
+        async function loadIrProfiles() {
+            if (!debugToolsOpen()) return;
+            try {
+                const data = await fetchJsonOnce('ir-profiles', '/api/ir/profiles' + activeDeviceQuery());
+                renderIfChanged('ir-profiles', data, payload => {
+                    renderDeviceState(payload);
+                    renderIrProfiles(payload.profiles || [], payload.current_ac_code, payload.summary, payload.backend_status || payload);
+                });
+            } catch (error) {
+                console.error('IR profile error:', error);
+                irList.innerHTML = '<div class="timer-empty">红外码库读取失败</div>';
+            }
+        }
+
+        async function learnIrCode(code, label) {
+            return runExclusive('ir-learn', '.ir-btn, .ir-filter-btn, #irCodeSelect', async () => {
+                const learnTimeout = 18;
+                setStatus('准备学习 ' + code + '，' + learnTimeout + ' 秒内发送红外', true);
+                irHint.textContent = '正在等待红外信号，' + learnTimeout + ' 秒内用遥控精灵发送一次。';
+                try {
+                    const response = await fetch('/api/ir/learn', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(withDeviceId({ code, label, timeout: learnTimeout }))
+                    });
+                    const data = await response.json();
+                    if (data.success) {
+                        renderDeviceState(data);
+                        renderIrProfiles(data.profiles || [], code, data.summary, lastIrBackendStatus);
+                        setStatus(`${code} 已学习，收到 ${data.raw_length} 个脉冲`);
+                        loadLogs();
+                        loadOverview();
+                        loadHealth();
+                    } else {
+                        setStatus(data.message || '学习失败', false);
+                        updateIrHint();
+                        loadLogs();
+                    }
+                    return data;
+                } catch (error) {
+                    console.error('IR learn error:', error);
+                    setStatus('红外学习请求失败', false);
+                    return { success: false, message: '红外学习请求失败' };
+                }
+            });
+        }
+
+        async function learnSelectedIrCode() {
+            const code = irCodeSelect.value;
+            if (!code) {
+                setStatus('请选择要学习的状态码', false);
+                return;
+            }
+            await learnIrCode(code, irLabelFor(code));
+        }
+
+        async function learnCurrentAcState() {
+            const code = buildCurrentAcStateCode();
+            await learnIrCode(code, irLabelFor(code));
+        }
+
+        async function testSelectedIrCode() {
+            const code = irCodeSelect.value;
+            if (!code) {
+                setStatus('请选择要测试的状态码', false);
+                return;
+            }
+            return runExclusive('ir-test', '.ir-btn, .ir-filter-btn, #irCodeSelect', async () => {
+                try {
+                    setStatus('正在发送红外状态码: ' + code);
+                    const response = await fetch('/api/ir/test', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ code })
+                    });
+                    const data = await response.json();
+                    setStatus(data.message || '测试完成', data.success);
+                    loadLogs();
+                    return data;
+                } catch (error) {
+                    console.error('IR test error:', error);
+                    setStatus('红外测试请求失败', false);
+                    return { success: false, message: '红外测试请求失败' };
+                }
+            });
+        }
+
+        function openIrBackup() {
+            window.open('/api/ir/backup', '_blank');
+        }
+
+        async function deleteSelectedIrCode() {
+            const code = irCodeSelect.value;
+            if (!code) {
+                setStatus('请选择要清除的状态码', false);
+                return;
+            }
+            if (!window.confirm('确定清除 ' + code + ' 的已学习红外码吗？清除后可以重新学习。')) {
+                return;
+            }
+
+            return runExclusive('ir-delete', '.ir-btn, .ir-filter-btn, #irCodeSelect', async () => {
+                try {
+                    const response = await fetch('/api/ir/delete', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ code })
+                    });
+                    const data = await response.json();
+                    if (data.success) {
+                        renderIrProfiles(data.profiles || [], code, data.summary, lastIrBackendStatus);
+                        setStatus(data.message || '红外码已清除');
+                        loadLogs();
+                        loadOverview();
+                        loadHealth();
+                    } else {
+                        setStatus(data.message || '红外码清除失败', false);
+                    }
+                    return data;
+                } catch (error) {
+                    console.error('IR delete error:', error);
+                    setStatus('红外码清除请求失败', false);
+                    return { success: false, message: '红外码清除请求失败' };
+                }
+            });
+        }
+
+        irCodeSelect.addEventListener('change', updateIrHint);
+        
+        // ---------- 发送命令到后端 ----------
+        async function sendCommand(command, value = null) {
+            return runExclusive('command:' + command, '.power-btn, .light-btn, .temp-btn, .mode-btn, .fan-btn', async () => {
+                try {
+                    setStatus('正在执行: ' + commandLabel(command));
+                    const response = await fetch('/api/command', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ command: command, value: value })
+                    });
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        setStatus(data.message);
+                        if (controlStatus) {
+                            controlStatus.textContent = `控制结果: ${commandLabel(command)} · ${data.message || '已执行'}`;
+                        }
+                        // 如果后端返回了状态，同步更新（可选）
+                        if (data.state) {
+                            powerOn = data.state.power;
+                            currentTemp = data.state.temperature;
+                            currentMode = data.state.mode;
+                            currentFan = data.state.fan;
+                            lightOn = Boolean(data.state.light);
+                        } else {
+                            // 手动更新模拟状态
+                            updateLocalState(command);
+                        }
+                        updateUI();
+                        loadLogs();
+                    } else {
+                        setStatus(data.message, false);
+                        if (controlStatus) {
+                            controlStatus.textContent = `控制结果: ${commandLabel(command)} · ${data.message || '执行失败'}`;
+                        }
+                        loadLogs();
+                    }
+                    return data;
+                } catch (error) {
+                    setStatus('网络错误，请重试', false);
+                    if (controlStatus) {
+                        controlStatus.textContent = `控制结果: ${commandLabel(command)} · 网络错误`;
+                    }
+                    console.error('Error:', error);
+                    return { success: false, message: '网络错误' };
+                }
+            });
+        }
+        
+        // 本地模拟状态更新（当后端未返回完整状态时）
+        function updateLocalState(command) {
+            switch(command) {
+                case 'power':
+                    powerOn = !powerOn;
+                    break;
+                case 'ac_on': powerOn = true; break;
+                case 'ac_off': powerOn = false; break;
+                case 'temp_up':
+                    if (currentTemp < 30) currentTemp++;
+                    break;
+                case 'temp_down':
+                    if (currentTemp > 16) currentTemp--;
+                    break;
+                case 'mode_auto': currentMode = 'auto'; break;
+                case 'mode_cool': currentMode = 'cool'; break;
+                case 'mode_heat': currentMode = 'heat'; break;
+                case 'mode_dry': currentMode = 'dry'; break;
+                case 'mode_fan': currentMode = 'fan'; break;
+                case 'fan_auto': currentFan = 'auto'; break;
+                case 'fan_low': currentFan = 'low'; break;
+                case 'fan_mid': currentFan = 'mid'; break;
+                case 'fan_high': currentFan = 'high'; break;
+                case 'light_toggle': lightOn = !lightOn; break;
+                case 'light_on': lightOn = true; break;
+                case 'light_off': lightOn = false; break;
+            }
+        }
+        
+        // ---------- 控制函数（供按钮调用）----------
+        function togglePower() {
+            sendCommand(powerOn ? 'ac_off' : 'ac_on');
+        }
+
+        function turnAcOn() {
+            sendCommand('ac_on');
+        }
+
+        function turnAcOff() {
+            sendCommand('ac_off');
+        }
+
+        function toggleLight() {
+            sendCommand('light_toggle');
+        }
+        
+        function changeTemp(delta) {
+            if (!modeCanAdjustTemp(currentMode)) {
+                setStatus(`${MODE_LABELS[currentMode] || '当前'}模式当前未启用调温；可调温模式: ${tempAdjustModeText()}`, false);
+                return;
+            }
+            if (delta > 0) {
+                sendCommand('temp_up');
+            } else {
+                sendCommand('temp_down');
+            }
+        }
+        
+        function setMode(mode) {
+            sendCommand('mode_' + mode);
+        }
+        
+        function setFan(fan) {
+            sendCommand('fan_' + fan);
+        }
+        
+        // 直接设置温度（供语音使用）
+        async function setTemp(temp) {
+            if (!modeCanAdjustTemp(currentMode)) {
+                setStatus(`${MODE_LABELS[currentMode] || '当前'}模式当前未启用调温；可调温模式: ${tempAdjustModeText()}`, false);
+                return;
+            }
+            const diff = temp - currentTemp;
+            if (diff > 0) {
+                for (let i = 0; i < diff; i++) await sendCommand('temp_up');
+            } else if (diff < 0) {
+                for (let i = 0; i < -diff; i++) await sendCommand('temp_down');
+            }
+        }
+        
+        // ---------- 语音识别 ----------
+        async function toggleRecording() {
+            if (!isRecording) {
+                await startRecording();
+            } else {
+                stopRecording();
+            }
+        }
+        
+        async function startRecording() {
+            const mode = voiceEngineMode ? voiceEngineMode.value : 'auto';
+            if (mode === 'backend') {
+                await startAudioUploadRecording();
+                return;
+            }
+            if ((mode === 'browser' || mode === 'auto') && SpeechRecognition) {
+                startBrowserSpeechRecognition();
+                return;
+            }
+            if (mode === 'browser') {
+                voiceResult.textContent = '当前浏览器不支持浏览器语音识别，请切换到后端 Vosk。';
+                setStatus('浏览器语音识别不可用', false);
+                return;
+            }
+
+            await startAudioUploadRecording();
+        }
+
+        function chooseAudioMimeType() {
+            if (!window.MediaRecorder || !MediaRecorder.isTypeSupported) {
+                return '';
+            }
+            const candidates = [
+                'audio/webm;codecs=opus',
+                'audio/webm',
+                'audio/ogg;codecs=opus',
+                'audio/mp4',
+                'audio/wav'
+            ];
+            return candidates.find(type => MediaRecorder.isTypeSupported(type)) || '';
+        }
+
+        function audioExtension(mimeType) {
+            const type = (mimeType || '').toLowerCase();
+            if (type.includes('webm')) return 'webm';
+            if (type.includes('ogg')) return 'ogg';
+            if (type.includes('mp4')) return 'm4a';
+            if (type.includes('wav')) return 'wav';
+            return 'webm';
+        }
+
+        function micSecureContextMessage() {
+            const host = window.location.hostname;
+            const localHostAllowed = host === 'localhost' || host === '127.0.0.1';
+            if (!window.isSecureContext && !localHostAllowed) {
+                return '当前网页不是 HTTPS，浏览器不会开放麦克风。请用 cpolar 的 https 地址，或给 http://' + host + ':5000 配置 HTTPS/浏览器信任。';
+            }
+            return '';
+        }
+
+        function startBrowserSpeechRecognition() {
+            const secureMessage = micSecureContextMessage();
+            if (secureMessage) {
+                voiceResult.textContent = secureMessage;
+                setStatus('麦克风需要 HTTPS 页面', false);
+                return;
+            }
+
+            recognitionFinalText = '';
+            recognitionHadError = false;
+            speechRecognition = new SpeechRecognition();
+            speechRecognition.lang = 'zh-CN';
+            speechRecognition.interimResults = true;
+            speechRecognition.continuous = false;
+
+            speechRecognition.onresult = event => {
+                let interimText = '';
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    const transcript = event.results[i][0].transcript;
+                    if (event.results[i].isFinal) {
+                        recognitionFinalText += transcript;
+                    } else {
+                        interimText += transcript;
+                    }
+                }
+                const shownText = recognitionFinalText || interimText;
+                if (shownText) {
+                    voiceResult.textContent = '正在识别: ' + shownText;
+                }
+            };
+
+            speechRecognition.onerror = event => {
+                recognitionHadError = true;
+                resetVoiceButton();
+                const msg = event.error === 'not-allowed'
+                    ? '麦克风权限被拒绝，请允许浏览器使用麦克风。'
+                    : '浏览器语音识别失败: ' + event.error;
+                voiceResult.textContent = msg;
+                setStatus(msg, false);
+            };
+
+            speechRecognition.onend = async () => {
+                const text = recognitionFinalText.trim();
+                resetVoiceButton();
+                if (recognitionHadError) return;
+
+                if (!text) {
+                    voiceResult.textContent = '没有听清楚，请再说一次。';
+                    setStatus('没有识别到语音', false);
+                    return;
+                }
+
+                voiceResult.textContent = '语音转文字: ' + text;
+                await processVoiceCommand(text);
+            };
+
+            isRecording = true;
+            voiceBtn.textContent = '🔴 识别中... 点击停止';
+            voiceBtn.classList.add('listening');
+            voiceResult.textContent = '请直接说话，说完后点击停止。';
+            setStatus('正在听你说话');
+            speechRecognition.start();
+        }
+
+        async function startAudioUploadRecording() {
+            try {
+                const status = await loadVoiceStatus(true);
+                if (!status || !status.ready) {
+                    const detail = status && status.model_path ? `模型路径: ${status.model_path}` : '请查看系统健康或服务日志';
+                    voiceResult.textContent = 'Vosk还没准备好，无法后端识别。' + detail;
+                    setStatus('Vosk还没准备好', false);
+                    return;
+                }
+                const secureMessage = micSecureContextMessage();
+                if (secureMessage) {
+                    voiceResult.textContent = secureMessage;
+                    setStatus('后端 Vosk 也需要浏览器先录到音频', false);
+                    return;
+                }
+
+                if (!navigator.mediaDevices || !window.MediaRecorder) {
+                    voiceResult.textContent = '当前浏览器不支持录音上传。请换 Chrome/Edge，或用 HTTPS 地址打开后再试。';
+                    setStatus('浏览器不支持录音上传', false);
+                    return;
+                }
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                const mimeType = chooseAudioMimeType();
+                mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+                audioChunks = [];
+                
+                mediaRecorder.ondataavailable = event => {
+                    if (event.data && event.data.size > 0) {
+                        audioChunks.push(event.data);
+                    }
+                };
+                
+                mediaRecorder.onstop = async () => {
+                    // 释放麦克风
+                    stream.getTracks().forEach(track => track.stop());
+                    
+                    // 生成音频Blob
+                    const actualType = mediaRecorder.mimeType || mimeType || 'audio/webm';
+                    const audioBlob = new Blob(audioChunks, { type: actualType });
+                    const audioUrl = URL.createObjectURL(audioBlob);
+                    
+                    // 显示播放器（可选）
+                    audioPlayback.src = audioUrl;
+                    audioPlayback.style.display = 'block';
+                    
+                    // 上传到后端
+                    await uploadAudio(audioBlob);
+                };
+                
+                mediaRecorder.start();
+                isRecording = true;
+                voiceBtn.textContent = '🔴 录音中... 点击停止';
+                voiceBtn.classList.add('listening');
+                voiceResult.textContent = '正在录音，停止后会上传给后端 Vosk 识别。';
+                setStatus('正在录音，准备后端识别');
+            } catch (err) {
+                voiceResult.textContent = '无法访问麦克风，请授予权限。';
+                setStatus('无法访问麦克风', false);
+                console.error(err);
+            }
+        }
+        
+        function stopRecording() {
+            if (speechRecognition) {
+                speechRecognition.stop();
+                return;
+            }
+
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+            }
+            resetVoiceButton();
+            voiceResult.textContent = '录音已停止，正在上传识别...';
+        }
+
+        function resetVoiceButton() {
+            isRecording = false;
+            voiceBtn.textContent = '🎤 开始语音控制';
+            voiceBtn.classList.remove('listening');
+            speechRecognition = null;
+        }
+        
+        async function uploadAudio(audioBlob) {
+            const formData = new FormData();
+            formData.append('audio', audioBlob, 'command.' + audioExtension(audioBlob.type));
+            
+            try {
+                const response = await fetch('/api/voice', {
+                    method: 'POST',
+                    body: formData
+                });
+                const responseText = await response.text();
+                let data = {};
+                try {
+                    data = responseText ? JSON.parse(responseText) : {};
+                } catch (parseError) {
+                    data = {
+                        success: false,
+                        message: `后端返回了非JSON内容，HTTP ${response.status}: ${responseText.slice(0, 120)}`
+                    };
+                }
+
+                if (!response.ok) {
+                    voiceResult.textContent = '识别失败: ' + (data.message || `HTTP ${response.status}`);
+                    setStatus(data.message || `语音接口请求失败 HTTP ${response.status}`, false);
+                    loadLogs();
+                    return;
+                }
+                
+                if (data.success && data.text) {
+                    voiceResult.textContent = '语音转文字: ' + data.text;
+                    await processVoiceCommand(data.text);
+                } else {
+                    voiceResult.textContent = '识别失败: ' + (data.message || '未知错误');
+                    setStatus(data.message || '语音识别失败', false);
+                }
+            } catch (error) {
+                voiceResult.textContent = '上传失败: ' + (error.message || '请检查网络');
+                setStatus('语音上传请求失败', false);
+                console.error('Upload error:', error);
+            }
+        }
+        
+        async function analyzeIntent(text) {
+            try {
+                const response = await fetch('/api/intent', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text })
+                });
+                return await response.json();
+            } catch (error) {
+                console.error('Intent error:', error);
+                return { success: false, message: 'AI意图识别请求失败' };
+            }
+        }
+
+        async function loadVoiceStatus(silent = false) {
+            if (!voiceStatus) return null;
+            try {
+                const response = await fetch('/api/voice/status');
+                const data = await response.json();
+                const modelValid = data.model_valid !== false && data.model_exists !== false;
+                const ready = Boolean(data.ready && modelValid);
+                const parts = [
+                    ready ? '可用' : '不可用',
+                    data.vosk_installed ? 'vosk已安装' : 'vosk未安装',
+                    data.ffmpeg_installed ? 'ffmpeg已安装' : 'ffmpeg未安装',
+                    modelValid ? '模型完整' : '模型不完整',
+                    data.configured_model_path && data.configured_model_path !== data.model_path ? `配置: ${data.configured_model_path}` : '',
+                    data.model_path ? `实际模型: ${data.model_path}` : '',
+                    !modelValid && data.message ? data.message : ''
+                ].filter(Boolean);
+                voiceStatus.textContent = 'Vosk状态: ' + parts.join(' · ');
+                data.ready = ready;
+                if (!silent) setStatus(ready ? 'Vosk状态正常' : 'Vosk还没准备好', ready);
+                return data;
+            } catch (error) {
+                console.error('Voice status error:', error);
+                voiceStatus.textContent = 'Vosk状态: 检查失败，请看服务日志';
+                if (!silent) setStatus('Vosk状态检查失败', false);
+                return null;
+            }
+        }
+
+        async function sendIntentFeedback(verdict) {
+            if (!lastIntentFeedback || !lastIntentFeedback.text) {
+                setStatus('还没有可反馈的识别结果', false);
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/feedback', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        text: lastIntentFeedback.text,
+                        result: lastIntentFeedback.result,
+                        verdict,
+                        note: feedbackNote.value.trim()
+                    })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    setStatus(verdict === 'correct' ? '已记录正确样本' : '已记录纠错样本');
+                    feedbackNote.value = '';
+                    loadLogs();
+                    loadHealth();
+                    loadFeedback();
+                    loadOverview();
+                } else {
+                    setStatus(data.message || '反馈保存失败', false);
+                }
+            } catch (error) {
+                console.error('Feedback error:', error);
+                setStatus('反馈请求失败', false);
+            }
+        }
+
+        async function createManualFeedbackSample() {
+            const text = manualFeedbackText ? manualFeedbackText.value.trim() : '';
+            if (!text) {
+                setStatus('请先输入要纠错的文本', false);
+                return;
+            }
+
+            return runExclusive('feedback-manual', '.feedback-btn, .small-btn', async () => {
+                try {
+                    const response = await fetch('/api/feedback', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            text,
+                            verdict: 'wrong',
+                            note: manualFeedbackNote ? manualFeedbackNote.value.trim() : '',
+                            expected_intents: manualFeedbackIntents ? manualFeedbackIntents.value.trim() : '',
+                            expected_commands: manualFeedbackCommands ? manualFeedbackCommands.value.trim() : '',
+                            result: { source: 'manual' }
+                        })
+                    });
+                    const data = await response.json();
+                    if (data.success) {
+                        setStatus('已新增纠错样本');
+                        if (manualFeedbackText) manualFeedbackText.value = '';
+                        if (manualFeedbackIntents) manualFeedbackIntents.value = '';
+                        if (manualFeedbackCommands) manualFeedbackCommands.value = '';
+                        if (manualFeedbackNote) manualFeedbackNote.value = '';
+                        loadFeedback();
+                        loadHealth();
+                        loadLogs();
+                    } else {
+                        setStatus(data.message || '新增纠错样本失败', false);
+                    }
+                    return data;
+                } catch (error) {
+                    console.error('Manual feedback error:', error);
+                    setStatus('新增纠错样本请求失败', false);
+                    return { success: false, message: '新增纠错样本请求失败' };
+                }
+            });
+        }
+
+        function renderFeedback(payload) {
+            const items = payload && payload.items ? payload.items : [];
+            const summary = payload && payload.summary ? payload.summary : {};
+            const duplicateText = summary.duplicates ? ` · 重复 ${summary.duplicates}` : '';
+            feedbackSummary.textContent = `总样本 ${summary.total || 0} · 正确 ${summary.correct || 0} · 错误 ${summary.wrong || 0} · 可训练 ${summary.training_ready || 0} · 待标注 ${summary.needs_correction || 0}${duplicateText}`;
+
+            if (!items.length) {
+                feedbackList.innerHTML = '<div class="timer-empty">还没有纠错样本</div>';
+                return;
+            }
+
+            feedbackList.innerHTML = items.map(item => {
+                const result = item.result || {};
+                const predictedIntents = Array.isArray(result.intents) ? result.intents.join('、') : '';
+                const predictedCommands = Array.isArray(result.command_labels)
+                    ? result.command_labels.join('、')
+                    : (Array.isArray(result.commands) ? result.commands.map(commandLabel).join('、') : '');
+                const expectedIntents = (item.expected_intents || []).join('、');
+                const expectedCommands = (item.expected_commands || []).join('、');
+                const readyText = item.training_ready ? '可训练' : (item.verdict === 'correct' ? '缺少AI结果' : '待标注');
+                return `
+                    <div class="feedback-item">
+                        <div class="feedback-title">#${item.id} ${escapeHtml(item.text)}</div>
+                        <div class="feedback-meta">${escapeHtml(item.time || '')} · ${item.verdict === 'correct' ? '识别正确' : '识别错误'} · ${readyText}</div>
+                        <div class="feedback-meta">AI: ${escapeHtml(predictedIntents || '无意图')} · ${escapeHtml(predictedCommands || '无命令')}</div>
+                        <div class="feedback-correction">
+                            <select id="fb-verdict-${item.id}">
+                                <option value="wrong" ${item.verdict === 'wrong' ? 'selected' : ''}>识别错误</option>
+                                <option value="correct" ${item.verdict === 'correct' ? 'selected' : ''}>识别正确</option>
+                            </select>
+                            <input id="fb-intents-${item.id}" value="${escapeHtml(expectedIntents)}" placeholder="正确意图，用逗号隔开，例如 空调制冷,风速调节">
+                            <input id="fb-commands-${item.id}" value="${escapeHtml(expectedCommands)}" placeholder="正确命令，用逗号隔开，例如 mode_cool,fan_mid">
+                            <input id="fb-note-${item.id}" value="${escapeHtml(item.note || '')}" placeholder="备注">
+                            <button class="feedback-btn" onclick="saveFeedbackCorrection(${item.id})">保存纠错</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function loadFeedback() {
+            if (!debugToolsOpen()) return;
+            try {
+                const data = await fetchJsonOnce('feedback', '/api/feedback?limit=15');
+                renderIfChanged('feedback', data, renderFeedback);
+            } catch (error) {
+                console.error('Feedback list error:', error);
+                feedbackSummary.textContent = '纠错样本读取失败';
+                feedbackList.innerHTML = '<div class="timer-empty">无法读取纠错样本</div>';
+            }
+        }
+
+        async function saveFeedbackCorrection(feedbackId) {
+            const verdict = document.getElementById('fb-verdict-' + feedbackId).value;
+            const expectedIntents = document.getElementById('fb-intents-' + feedbackId).value;
+            const expectedCommands = document.getElementById('fb-commands-' + feedbackId).value;
+            const note = document.getElementById('fb-note-' + feedbackId).value;
+            return runExclusive('feedback-save:' + feedbackId, '.feedback-btn, .small-btn', async () => {
+                try {
+                    const response = await fetch('/api/feedback/' + feedbackId, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            verdict,
+                            expected_intents: expectedIntents,
+                            expected_commands: expectedCommands,
+                            note
+                        })
+                    });
+                    const data = await response.json();
+                    if (data.success) {
+                        renderFeedback(data);
+                        setStatus('纠错样本已保存');
+                        loadHealth();
+                        loadOverview();
+                        loadLogs();
+                    } else {
+                        setStatus(data.message || '纠错保存失败', false);
+                    }
+                    return data;
+                } catch (error) {
+                    console.error('Feedback save error:', error);
+                    setStatus('纠错保存请求失败', false);
+                    return { success: false, message: '纠错保存请求失败' };
+                }
+            });
+        }
+
+        async function generateFeedbackTrainingData() {
+            try {
+                const response = await fetch('/api/feedback/training-data', { method: 'POST' });
+                const data = await response.json();
+                if (data.success) {
+                    setStatus(`已生成 ${data.count} 条纠错训练样本`);
+                    loadFeedback();
+                    loadHealth();
+                    loadOverview();
+                    loadLogs();
+                } else {
+                    setStatus(data.message || '训练数据生成失败', false);
+                }
+            } catch (error) {
+                console.error('Training data error:', error);
+                setStatus('训练数据生成请求失败', false);
+            }
+        }
+
+        async function deduplicateFeedback() {
+            return runExclusive('feedback-deduplicate', '.feedback-btn, .small-btn', async () => {
+                try {
+                    const response = await fetch('/api/feedback/deduplicate', { method: 'POST' });
+                    const data = await response.json();
+                    if (data.success) {
+                        renderFeedback(data);
+                        setStatus(data.removed ? `已清理 ${data.removed} 条重复样本` : '没有发现重复样本');
+                        loadHealth();
+                        loadOverview();
+                        loadLogs();
+                    } else {
+                        setStatus(data.message || '清理重复样本失败', false);
+                    }
+                    return data;
+                } catch (error) {
+                    console.error('Feedback deduplicate error:', error);
+                    setStatus('清理重复样本请求失败', false);
+                    return { success: false, message: '清理重复样本请求失败' };
+                }
+            });
+        }
+
+        function getBestIntent(intentData) {
+            let bestIntent = '';
+            let bestScore = 0;
+            const probabilities = intentData && intentData.probabilities ? intentData.probabilities : {};
+            Object.entries(probabilities).forEach(([intent, score]) => {
+                if (score > bestScore) {
+                    bestIntent = intent;
+                    bestScore = score;
+                }
+            });
+            return bestScore >= 0.5 ? bestIntent : '';
+        }
+
+        function confidenceLine(intentData) {
+            if (!intentData || !intentData.confidence) return '';
+            const confidence = intentData.confidence;
+            const percent = Math.round((confidence.top_score || 0) * 100);
+            const source = confidence.rule_based ? '规则已校正' : '模型判断';
+            const reason = intentData.needs_confirmation && intentData.confirmation_reason
+                ? `，需要确认: ${intentData.confirmation_reason}`
+                : '';
+            return `\n置信度: ${percent}% · ${confidence.top_intent || '无'} · ${source}${reason}`;
+        }
+
+        function fillRecommendedCorrection(intentData, commandLabels, timer) {
+            const text = (intentData && intentData.text) || (lastIntentFeedback && lastIntentFeedback.text) || '';
+            const intents = intentData && Array.isArray(intentData.intents) ? intentData.intents : [];
+            const commands = intentData && Array.isArray(intentData.commands) ? intentData.commands : [];
+            const reason = intentData && intentData.confirmation_reason ? intentData.confirmation_reason : '置信度偏低';
+            if (feedbackNote) {
+                feedbackNote.value = `低置信度识别，需要确认: ${reason}`;
+            }
+            if (manualFeedbackText) manualFeedbackText.value = text;
+            if (manualFeedbackIntents) manualFeedbackIntents.value = intents.join(',');
+            if (manualFeedbackCommands) manualFeedbackCommands.value = commands.join(',');
+            if (manualFeedbackNote) {
+                const actionText = timer
+                    ? `原计划创建定时: ${formatRemaining(timer.delay_seconds)}后执行`
+                    : (commandLabels.length ? `原预测命令: ${commandLabels.join('、')}` : '原预测无命令');
+                manualFeedbackNote.value = `低置信度推荐纠错；${actionText}`;
+            }
+            if (!debugToolsOpen()) toggleDebugTools();
+            const panel = document.querySelector('.feedback-manager-section');
+            if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            setStatus('已打开推荐纠错，请把正确意图和命令改好后保存', false);
+        }
+
+        function closeIntentConfirm() {
+            if (intentConfirmOverlay) intentConfirmOverlay.hidden = true;
+        }
+
+        async function confirmIntentIfNeeded(intentData, commandLabels, timer) {
+            if (!intentData || !intentData.needs_confirmation) return true;
+            const actionText = timer
+                ? `创建定时: ${formatRemaining(timer.delay_seconds)}后执行`
+                : (commandLabels.length ? `执行命令: ${commandLabels.join('、')}` : '根据文本继续执行');
+            const confidence = intentData.confidence || {};
+            const percent = Math.round((confidence.top_score || 0) * 100);
+            if (!intentConfirmOverlay) {
+                return window.confirm('AI 这次不太确定，确认执行吗？');
+            }
+
+            intentConfirmBody.textContent = '这次识别可能有偏差。为了避免误开空调或误发红外，确认后才会执行。';
+            intentConfirmDetail.textContent = [
+                `原因: ${intentData.confirmation_reason || '置信度偏低'}`,
+                `识别文本: ${(intentData && intentData.text) || (lastIntentFeedback && lastIntentFeedback.text) || ''}`,
+                `理解为: ${(intentData.intents || []).join('、') || '无'}`,
+                `置信度: ${percent}% · ${confidence.top_intent || '无'}`,
+                actionText
+            ].join('\n');
+            intentConfirmOverlay.hidden = false;
+
+            return new Promise(resolve => {
+                intentConfirmRunBtn.onclick = () => {
+                    closeIntentConfirm();
+                    resolve(true);
+                };
+                intentConfirmCancelBtn.onclick = () => {
+                    closeIntentConfirm();
+                    resolve(false);
+                };
+                intentConfirmCorrectionBtn.onclick = () => {
+                    closeIntentConfirm();
+                    fillRecommendedCorrection(intentData, commandLabels, timer);
+                    resolve(false);
+                };
+            });
+        }
+
+        // 处理语音转文字后的文本，先走AI意图识别，再执行控制命令
+        async function processVoiceCommand(text) {
+            const intentData = await analyzeIntent(text);
+            lastIntentFeedback = { text, result: intentData };
+            const bestIntent = getBestIntent(intentData);
+            const intents = new Set(intentData && intentData.intents ? intentData.intents : []);
+            const commands = intentData && Array.isArray(intentData.commands) ? intentData.commands : [];
+            const timer = intentData && intentData.timer ? intentData.timer : null;
+            const intentText = intentData && intentData.success
+                ? ((intentData.intents && intentData.intents.length) ? intentData.intents.join('、') : '无')
+                : (intentData.message || '识别失败');
+            const commandLabels = intentData && intentData.command_labels && intentData.command_labels.length
+                ? intentData.command_labels
+                : commands.map(commandLabel);
+            const correctedText = intentData && intentData.asr_corrected && intentData.corrected_text
+                ? '\n纠错后文本: ' + intentData.corrected_text
+                : '';
+            const commandText = commandLabels.length ? '\n执行命令: ' + commandLabels.join('、') : '';
+            const timerText = timer ? '\n创建定时: ' + formatRemaining(timer.delay_seconds) + '后执行' : '';
+            const environmentText = intentData && intentData.environment ? '\n环境已刷新到页面' : '';
+            const confidenceText = confidenceLine(intentData);
+            voiceResult.textContent = '语音转文字: ' + text + correctedText + '\nAI意图: ' + intentText + confidenceText + commandText + timerText + environmentText;
+
+            if (intentData && intentData.environment) {
+                updateEnvironmentPanel(intentData.environment);
+            }
+
+            if (!(await confirmIntentIfNeeded(intentData, commandLabels, timer))) {
+                setStatus('已取消低置信度执行，请在纠错管理里标注正确结果', false);
+                return;
+            }
+
+            if (timer) {
+                await createTimerFromIntent(timer);
+                return;
+            }
+
+            if (commands.length) {
+                for (const command of commands) {
+                    await sendCommand(command);
+                }
+                return;
+            }
+
+            const lowerText = text.toLowerCase();
+            
+            // 开关机
+            if (lowerText.includes('开灯') || lowerText.includes('打开灯')) {
+                await sendCommand('light_on');
+            } else if (lowerText.includes('关灯') || lowerText.includes('关闭灯')) {
+                await sendCommand('light_off');
+            }
+
+            if (lowerText.includes('开空调') || lowerText.includes('打开空调') || lowerText.includes('空调开机')) {
+                await sendCommand('ac_on');
+            } else if (lowerText.includes('关空调') || lowerText.includes('关闭空调') || lowerText.includes('空调关机')) {
+                await sendCommand('ac_off');
+            }
+            
+            // 温度设置（匹配数字+度）
+            const tempMatch = lowerText.match(/(\d+)\s*度/);
+            if (tempMatch) {
+                const temp = parseInt(tempMatch[1]);
+                if (temp >= 16 && temp <= 30) {
+                    setTemp(temp);
+                }
+            } else {
+                // 体感类表达：热就降温/制冷，冷就升温/制热
+                if (lowerText.includes('热') && !lowerText.includes('制热')) {
+                    changeTemp(-1);
+                } else if (lowerText.includes('冷') && !lowerText.includes('制冷')) {
+                    changeTemp(1);
+                } else if (lowerText.includes('温度高') || lowerText.includes('升温')) {
+                    changeTemp(1);
+                } else if (lowerText.includes('温度低') || lowerText.includes('降温')) {
+                    changeTemp(-1);
+                }
+            }
+            
+            // 模式
+            if (lowerText.includes('制冷') || lowerText.includes('冷气') || (lowerText.includes('热') && !lowerText.includes('制热')) || bestIntent === '空调制冷' || intents.has('空调制冷')) setMode('cool');
+            else if (lowerText.includes('制热') || lowerText.includes('暖气') || (lowerText.includes('冷') && !lowerText.includes('制冷')) || bestIntent === '空调制热' || intents.has('空调制热')) setMode('heat');
+            else if (lowerText.includes('除湿') || lowerText.includes('抽湿')) setMode('dry');
+            else if (lowerText.includes('送风') || lowerText.includes('风扇')) setMode('fan');
+            
+            // 风速
+            const hasWindText = lowerText.includes('风速') || lowerText.includes('风量') || lowerText.includes('风力');
+            if (hasWindText && lowerText.includes('自动')) setFan('auto');
+            else if (hasWindText && (lowerText.includes('低') || lowerText.includes('小') || lowerText.includes('弱'))) setFan('low');
+            else if (hasWindText && lowerText.includes('中')) setFan('mid');
+            else if (hasWindText && (lowerText.includes('高') || lowerText.includes('大') || lowerText.includes('强'))) setFan('high');
+            else if (lowerText.includes('低风') || lowerText.includes('小风')) setFan('low');
+            else if (lowerText.includes('中风') || lowerText.includes('中速')) setFan('mid');
+            else if (lowerText.includes('高风') || lowerText.includes('大风') || lowerText.includes('强风')) setFan('high');
+        }
+        
+        // ---------- 初始化 ----------
+        async function loadDevices(silent = false) {
+            try {
+                const data = await fetchJsonOnce('devices', '/api/devices');
+                renderIfChanged('devices', data, renderDeviceState);
+                if (!silent) setStatus('设备列表已刷新');
+                return data;
+            } catch (error) {
+                console.error('Device error:', error);
+                if (!silent) setStatus('设备列表读取失败', false);
+                return null;
+            }
+        }
+
+        async function changeSelectedDevice(deviceId) {
+            if (!deviceId) return;
+            try {
+                const response = await fetch('/api/devices/select', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ device_id: deviceId })
+                });
+                const data = await response.json();
+                if (!data.success) {
+                    setStatus(data.message || '切换设备失败', false);
+                    return;
+                }
+                renderDeviceState(data);
+                await loadInitialState();
+                if (debugToolsOpen()) loadIrProfiles();
+                setStatus(data.message || '设备已切换');
+            } catch (error) {
+                console.error('Select device error:', error);
+                setStatus('切换设备请求失败', false);
+            }
+        }
+
+        async function createDevice() {
+            const name = (deviceNameInput?.value || '').trim();
+            const location = (deviceLocationInput?.value || '').trim();
+            if (!name) {
+                setStatus('请输入新设备名称', false);
+                return;
+            }
+            try {
+                const response = await fetch('/api/devices', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, location })
+                });
+                const data = await response.json();
+                if (!data.success) {
+                    setStatus(data.message || '新增设备失败', false);
+                    return;
+                }
+                renderDeviceState(data);
+                if (deviceNameInput) deviceNameInput.value = '';
+                if (deviceLocationInput) deviceLocationInput.value = '';
+                await loadInitialState();
+                if (debugToolsOpen()) loadIrProfiles();
+                setStatus(data.message || '设备已新增');
+            } catch (error) {
+                console.error('Create device error:', error);
+                setStatus('新增设备请求失败', false);
+            }
+        }
+
+        async function resetCurrentDeviceCodes() {
+            const active = devices.find(device => device.id === selectedDeviceId);
+            const targetName = active ? active.name : '当前设备';
+            if (!window.confirm('确定清空 ' + targetName + ' 的红外码库吗？清空后需要重新学习。')) {
+                return;
+            }
+            try {
+                const response = await fetch('/api/ir/reset', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(withDeviceId())
+                });
+                const data = await response.json();
+                if (!data.success) {
+                    setStatus(data.message || '清空失败', false);
+                    return;
+                }
+                renderDeviceState(data);
+                renderIrProfiles(data.profiles || [], buildCurrentAcStateCode(), data.summary, lastIrBackendStatus);
+                setStatus(data.message || '当前设备码库已清空');
+            } catch (error) {
+                console.error('Reset IR codes error:', error);
+                setStatus('清空当前设备码库失败', false);
+            }
+        }
+
+        async function deleteCurrentDevice() {
+            const active = devices.find(device => device.id === selectedDeviceId);
+            if (!active) {
+                setStatus('当前没有可删除的设备', false);
+                return;
+            }
+            if (!window.confirm('确定删除 ' + active.name + ' 吗？删除后该设备的状态和红外码都会一起清空。')) {
+                return;
+            }
+            try {
+                const response = await fetch('/api/devices/' + encodeURIComponent(active.id), {
+                    method: 'DELETE'
+                });
+                const data = await response.json();
+                if (!data.success) {
+                    setStatus(data.message || '删除设备失败', false);
+                    return;
+                }
+                renderDeviceState(data);
+                await loadInitialState();
+                if (debugToolsOpen()) await loadIrProfiles();
+                setStatus(data.message || '设备已删除');
+            } catch (error) {
+                console.error('Delete device error:', error);
+                setStatus('删除设备请求失败', false);
+            }
+        }
+
+        async function testSelectedIrCode() {
+            const code = irCodeSelect.value;
+            if (!code) {
+                setStatus('请选择要测试的状态码', false);
+                return;
+            }
+            return runExclusive('ir-test', '.ir-btn, .ir-filter-btn, #irCodeSelect', async () => {
+                try {
+                    setStatus('正在发送红外状态码: ' + code);
+                    const response = await fetch('/api/ir/test', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(withDeviceId({ code }))
+                    });
+                    const data = await response.json();
+                    renderDeviceState(data);
+                    setStatus(data.message || '测试完成', data.success);
+                    loadLogs();
+                    return data;
+                } catch (error) {
+                    console.error('IR test error:', error);
+                    setStatus('红外测试请求失败', false);
+                    return { success: false, message: '红外测试请求失败' };
+                }
+            });
+        }
+
+        function openIrBackup() {
+            window.open('/api/ir/backup' + activeDeviceQuery(), '_blank');
+        }
+
+        async function deleteSelectedIrCode() {
+            const code = irCodeSelect.value;
+            if (!code) {
+                setStatus('请选择要清除的状态码', false);
+                return;
+            }
+            if (!window.confirm('确定清除 ' + code + ' 的已学习红外码吗？清除后可以重新学习。')) {
+                return;
+            }
+
+            return runExclusive('ir-delete', '.ir-btn, .ir-filter-btn, #irCodeSelect', async () => {
+                try {
+                    const response = await fetch('/api/ir/delete', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(withDeviceId({ code }))
+                    });
+                    const data = await response.json();
+                    if (data.success) {
+                        renderDeviceState(data);
+                        renderIrProfiles(data.profiles || [], code, data.summary, lastIrBackendStatus);
+                        setStatus(data.message || '红外码已清除');
+                        loadLogs();
+                        loadOverview();
+                        loadHealth();
+                    } else {
+                        setStatus(data.message || '红外码清除失败', false);
+                    }
+                    return data;
+                } catch (error) {
+                    console.error('IR delete error:', error);
+                    setStatus('红外码清除请求失败', false);
+                    return { success: false, message: '红外码清除请求失败' };
+                }
+            });
+        }
+
+        async function sendCommand(command, value = null) {
+            return runExclusive('command:' + command, '.power-btn, .light-btn, .temp-btn, .mode-btn, .fan-btn', async () => {
+                try {
+                    setStatus('正在执行: ' + commandLabel(command));
+                    const response = await fetch('/api/command', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(withDeviceId({ command: command, value: value }))
+                    });
+                    const data = await response.json();
+
+                    if (data.success) {
+                        setStatus(data.message);
+                        renderDeviceState(data);
+                        if (controlStatus) {
+                            controlStatus.textContent = `控制结果: ${commandLabel(command)} · ${data.message || '已执行'}`;
+                        }
+                        if (data.state) {
+                            powerOn = data.state.power;
+                            currentTemp = data.state.temperature;
+                            currentMode = data.state.mode;
+                            currentFan = data.state.fan;
+                            lightOn = Boolean(data.state.light);
+                            updateTempAdjustModes(data.state.capabilities || {});
+                            updateUI();
+                        }
+                        loadOverview();
+                        loadHealth();
+                        loadLogs();
+                    } else {
+                        setStatus(data.message || '控制执行失败', false);
+                    }
+
+                    return data;
+                } catch (error) {
+                    console.error('sendCommand error:', error);
+                    setStatus('控制请求失败', false);
+                    return { success: false, message: '控制请求失败' };
+                }
+            });
+        }
+
+        async function loadInitialState() {
+            try {
+                const data = await fetchJsonOnce('state', '/api/state' + activeDeviceQuery());
+                powerOn = data.power || false;
+                currentTemp = data.temperature || 26;
+                currentMode = data.mode || 'cool';
+                currentFan = data.fan || 'auto';
+                lightOn = Boolean(data.light);
+                updateTempAdjustModes(data.capabilities || {});
+                renderDeviceState(data);
+                updateUI();
+            } catch (e) {
+                console.warn('无法获取初始状态，使用默认值');
+            }
+        }
+        
+        function startDashboard() {
+            if (dashboardStarted) {
+                loadDevices(true);
+                loadInitialState();
+                loadEnvironment(true);
+                loadVoiceStatus(true);
+                loadTimers();
+                if (debugToolsOpen()) refreshDebugPanels();
+                return;
+            }
+            dashboardStarted = true;
+            loadDevices(true);
+            loadInitialState();
+            loadEnvironment(true);
+            loadVoiceStatus(true);
+            loadRulePresets();
+            loadRules();
+            loadTimers();
+            setInterval(() => {
+                if (pageActive()) loadEnvironment(true);
+            }, POLL_INTERVALS.environment);
+            setInterval(() => {
+                if (pageActive()) loadRules();
+            }, POLL_INTERVALS.rules);
+            setInterval(() => {
+                if (pageActive()) loadTimers();
+            }, POLL_INTERVALS.timers);
+            setInterval(() => {
+                if (pageActive() && debugToolsOpen()) {
+                    loadHealth();
+                    loadLogs();
+                }
+            }, POLL_INTERVALS.debug);
+            document.addEventListener('visibilitychange', () => {
+                if (!pageActive()) return;
+                loadDevices(true);
+                loadInitialState();
+                loadEnvironment(true);
+                loadVoiceStatus(true);
+                loadTimers();
+                if (debugToolsOpen()) refreshDebugPanels();
+            });
+            setStatus(authRequired ? '系统就绪' : '系统就绪；公网暴露前请设置访问密码', authRequired);
+        }
+
+        window.onload = async () => {
+            const allowed = await checkAuth();
+            if (allowed) {
+                startDashboard();
+            }
+        };
+    </script>
+</body>
+</html>

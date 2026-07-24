@@ -1,0 +1,48 @@
+{
+  "01_主程序与网页": [
+    "app.py",
+    "index.html",
+    "storage.py"
+  ],
+  "02_AI与语音": [
+    "ai.py",
+    "intent_service.py",
+    "best_model.pt",
+    "vocab.json",
+    "intents.json",
+    "yuyin.py",
+    "yuyinapi.py",
+    "models/vosk-model-small-cn-0.22.zip"
+  ],
+  "03_设备与自动控制": [
+    "device_control.py",
+    "dht11_sensor.py",
+    "gpio_ir.py",
+    "ir_forwarder.py",
+    "hardware_layer.py",
+    "runtime_store.py",
+    "feedback_store.py",
+    "health_service.py",
+    "project_overview.py",
+    "data/ir_forwarder_codes.json",
+    "data/ir_forwarder_codes.example.json"
+  ],
+  "04_Jailhouse共享内存通信": [
+    "realtime_bridge.py",
+    "jailhouse_mailbox_bridge.py",
+    "jailhouse_mailbox_channel_start.sh",
+    "jailhouse_smart_home_mailbox_inmate.c",
+    "build_jailhouse_mailbox_inmate.py",
+    "mailbox_driver/Makefile",
+    "mailbox_driver/smart_home_mailbox.c"
+  ],
+  "05_部署与板端验收": [
+    "deploy_to_pi.ps1",
+    "deploy_remote_finalize.sh",
+    "requirements.txt",
+    "generate_ir_forwarder_codes.py",
+    "project_acceptance.py",
+    "fault_injection.py",
+    "deployment_manifest.json"
+  ]
+}
